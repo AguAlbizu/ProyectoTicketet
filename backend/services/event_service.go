@@ -1,62 +1,37 @@
 package services
 
 import (
-	"ticketapp/dao"
+	"fmt"
 	"ticketapp/domain"
 )
 
-// EventService handles business logic for event management.
-type EventService struct {
-	eventDAO *dao.EventDAO
+// EventRepository define los métodos de persistencia requeridos por EventService.
+type EventRepository interface {
+	GetAllEvents(categoria string) ([]domain.Event, error)
+	GetEventByID(id uint) (*domain.Event, error)
 }
 
-// NewEventService creates a new EventService with its required dependencies.
-func NewEventService(eventDAO *dao.EventDAO) *EventService {
+type EventService struct {
+	eventDAO EventRepository
+}
+
+func NewEventService(eventDAO EventRepository) *EventService {
 	return &EventService{eventDAO: eventDAO}
 }
 
-// EventInput holds the data required to create or update an event.
-type EventInput struct {
-	Title            string
-	Description      string
-	Date             string
-	DurationMinutes  int
-	Capacity         int
-	Category         string
-	ImageURL         string
+// GetEvents retorna los eventos activos. Si categoria no es vacía, filtra por ella.
+func (s *EventService) GetEvents(categoria string) ([]domain.Event, error) {
+	return s.eventDAO.GetAllEvents(categoria)
 }
 
-// GetAll returns all active events, optionally filtered by category.
-func (s *EventService) GetAll(category string) ([]domain.Event, error) {
-	// TODO: delegate to eventDAO.FindAll(category)
-	return nil, nil
-}
-
-// GetByID returns a single event by ID or an error if not found.
-func (s *EventService) GetByID(id uint) (*domain.Event, error) {
-	// TODO: delegate to eventDAO.FindByID(id)
-	return nil, nil
-}
-
-// Create validates and creates a new event (admin only).
-// Sets AvailableTickets = Capacity on creation.
-func (s *EventService) Create(input EventInput) (*domain.Event, error) {
-	// TODO: validate required fields (title, date, capacity > 0)
-	// TODO: parse date string to time.Time
-	// TODO: build domain.Event and call eventDAO.Create
-	return nil, nil
-}
-
-// Update applies changes to an existing event (admin only).
-func (s *EventService) Update(id uint, input EventInput) (*domain.Event, error) {
-	// TODO: fetch event with eventDAO.FindByID
-	// TODO: apply changes from input to fetched event
-	// TODO: call eventDAO.Update
-	return nil, nil
-}
-
-// Cancel changes an event status to cancelled.
-func (s *EventService) Cancel(id uint) error {
-	// TODO: fetch event, set Status = EventStatusCancelled, call eventDAO.Update
-	return nil
+// GetEventByID retorna el evento o error si no existe o está cancelado.
+func (s *EventService) GetEventByID(id uint) (*domain.Event, error) {
+	event, err := s.eventDAO.GetEventByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("evento no encontrado")
+	}
+	if event.Estado == "cancelado" {
+		return nil, fmt.Errorf("el evento está cancelado")
+	}
+	return event, nil
 }

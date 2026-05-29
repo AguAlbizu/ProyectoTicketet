@@ -1,18 +1,31 @@
 import { useState, useEffect } from 'react'
 import { getEvents } from '../api/eventsApi'
 
-// Fetches the list of active events, optionally filtered by category.
-// Returns { events, loading, error }.
-export function useEvents(category = '') {
+export function useEvents() {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    // TODO: call getEvents(category)
-    // TODO: setEvents(response.data), handle errors with setError
-    // TODO: setLoading(false) in finally block
-  }, [category])
+    fetchEvents('')
+  }, [])
 
-  return { events, loading, error }
+  const fetchEvents = async (categoria) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await getEvents(categoria)
+      setEvents(res.data)
+    } catch (err) {
+      setError('Error al cargar los eventos')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filterByCategoria = (categoria) => {
+    fetchEvents(categoria)
+  }
+
+  return { events, loading, error, filterByCategoria }
 }

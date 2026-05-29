@@ -1,14 +1,21 @@
-// Filter bar for the events catalog.
-// Props:
-//   categories      — string[] list of available categories
-//   selectedCategory — currently active filter value
-//   onChange         — callback(category: string) when selection changes
-function EventFilter({ categories = [], selectedCategory, onChange }) {
-  // TODO: render a list of category buttons or a <select>
-  // TODO: highlight the active category
-  // TODO: call onChange(category) on click/change
+const CATEGORIAS = ['Todas', 'Música', 'Teatro', 'Deportes', 'Cine', 'Otro']
 
-  return <div>{/* TODO: implement EventFilter UI */}</div>
+function EventFilter({ onFilter }) {
+  const handleChange = (e) => {
+    const value = e.target.value === 'Todas' ? '' : e.target.value
+    onFilter(value)
+  }
+
+  return (
+    <div style={{ marginBottom: '1rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
+      <label htmlFor="categoria">Filtrar por categoría:</label>
+      <select id="categoria" onChange={handleChange}>
+        {CATEGORIAS.map((cat) => (
+          <option key={cat} value={cat}>{cat}</option>
+        ))}
+      </select>
+    </div>
+  )
 }
 
 export default EventFilter

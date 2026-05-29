@@ -1,19 +1,16 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import LoadingSpinner from './LoadingSpinner'
 
-// Protege una ruta verificando que el usuario tenga un token válido en el contexto.
-// Si no hay token, redirige a /login.
-//
-// TODO (entrega final): agregar validación de rol como prop (ej: requiredRole="admin")
+// Redirige a /login si no hay token.
+// TODO (entrega final): agregar validación de rol como prop
+function ProtectedRoute() {
+  const { token, loading } = useAuth()
 
-function ProtectedRoute({ children }) {
-  const { token } = useAuth()
+  if (loading) return <LoadingSpinner />
+  if (!token) return <Navigate to="/login" replace />
 
-  if (!token) {
-    return <Navigate to="/login" replace />
-  }
-
-  return children
+  return <Outlet />
 }
 
 export default ProtectedRoute

@@ -6,43 +6,34 @@ import (
 	"gorm.io/gorm"
 )
 
-// EventDAO handles all database operations for the Event model.
 type EventDAO struct {
 	db *gorm.DB
 }
 
-// NewEventDAO creates a new EventDAO with the provided GORM instance.
 func NewEventDAO(db *gorm.DB) *EventDAO {
 	return &EventDAO{db: db}
 }
 
-// Create persists a new event record.
-func (d *EventDAO) Create(event *domain.Event) error {
-	// TODO: d.db.Create(event)
-	return nil
+// GetAllEvents retorna todos los eventos activos. Si categoria no es vacía, filtra por ella.
+func (d *EventDAO) GetAllEvents(categoria string) ([]domain.Event, error) {
+	var events []domain.Event
+	query := d.db.Where("estado = ?", "activo")
+	if categoria != "" {
+		query = query.Where("categoria = ?", categoria)
+	}
+	err := query.Find(&events).Error
+	return events, err
 }
 
-// FindAll returns all active events, optionally filtered by category.
-func (d *EventDAO) FindAll(category string) ([]domain.Event, error) {
-	// TODO: build query with optional WHERE category = ? filter
-	// TODO: d.db.Where("status = ?", domain.EventStatusActive).Find(&events)
-	return nil, nil
+func (d *EventDAO) GetEventByID(id uint) (*domain.Event, error) {
+	var event domain.Event
+	err := d.db.First(&event, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &event, nil
 }
 
-// FindByID returns a single event by its ID.
-func (d *EventDAO) FindByID(id uint) (*domain.Event, error) {
-	// TODO: d.db.First(&event, id)
-	return nil, nil
-}
-
-// Update saves changes to an existing event.
-func (d *EventDAO) Update(event *domain.Event) error {
-	// TODO: d.db.Save(event)
-	return nil
-}
-
-// Delete soft-deletes an event by ID.
-func (d *EventDAO) Delete(id uint) error {
-	// TODO: d.db.Delete(&domain.Event{}, id)
-	return nil
+func (d *EventDAO) UpdateEvent(event *domain.Event) error {
+	return d.db.Save(event).Error
 }

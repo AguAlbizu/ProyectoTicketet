@@ -5,17 +5,13 @@ import (
 	"encoding/hex"
 )
 
-// HashPassword returns the SHA-256 hex digest of the given password.
+// HashPassword retorna el hash SHA-256 en formato hexadecimal de la contraseña dada.
 func HashPassword(password string) string {
-	// TODO: compute sha256.Sum256([]byte(password))
-	// TODO: return hex.EncodeToString(hash[:])
-	_ = sha256.New()
-	_ = hex.EncodeToString
-	return ""
+	hash := sha256.Sum256([]byte(password))
+	return hex.EncodeToString(hash[:])
 }
 
-// CheckPassword compares a plain-text password against its stored hash.
+// CheckPassword compara una contraseña en texto plano contra su hash almacenado.
 func CheckPassword(password, hash string) bool {
-	// TODO: hash the password and compare with the stored hash
-	return false
+	return HashPassword(password) == hash
 }

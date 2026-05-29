@@ -1,41 +1,51 @@
-import { createContext, useState } from 'react'
+import { createContext, useState, useEffect } from 'react'
 import * as authApi from '../api/authApi'
 
 export const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    // Restore user from localStorage on page reload
-    const stored = localStorage.getItem('user')
-    return stored ? JSON.parse(stored) : null
-  })
+  const [user, setUser] = useState(null)
+  const [token, setToken] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  const [token, setToken] = useState(() => localStorage.getItem('token') || null)
+  // Rehidratar sesión desde localStorage al montar
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token')
+    const storedUser = localStorage.getItem('user')
+    if (storedToken && storedUser) {
+      setToken(storedToken)
+      setUser(JSON.parse(storedUser))
+    }
+    setLoading(false)
+  }, [])
 
-  // Register a new account and automatically log in on success.
-  const register = async (name, email, password) => {
-    // TODO: call authApi.register({ name, email, password })
-    // TODO: on success, persist token and user to localStorage
-    // TODO: update state: setToken, setUser
-  }
-
-  // Log in with email and password.
-  // Persists the JWT token and user data to localStorage.
   const login = async (email, password) => {
-    // TODO: call authApi.login({ email, password })
-    // TODO: destructure response: { token, user }
-    // TODO: localStorage.setItem('token', token), localStorage.setItem('user', JSON.stringify(user))
-    // TODO: setToken(token), setUser(user)
+    const res = await authApi.login(email, password)
+    const { token: newToken, user: newUser } = res.data
+    localStorage.setItem('token', newToken)
+    localStorage.setItem('user', JSON.stringify(newUser))
+    setToken(newToken)
+    setUser(newUser)
+    return newUser
   }
 
-  // Clear session data and redirect to login.
+  const register = async (nombre, email, password) => {
+    await authApi.register(nombre, email, password)
+    // Login automático luego del registro
+    return login(email, password)
+  }
+
   const logout = () => {
-    // TODO: localStorage.removeItem('token'), localStorage.removeItem('user')
-    // TODO: setToken(null), setUser(null)
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    setToken(null)
+    setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, register }}>
+    <AuthContext.Provider
+      value={{ user, token, isAuthenticated: !!token, login, register, logout, loading }}
+    >
       {children}
     </AuthContext.Provider>
   )

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useEvents } from '../../hooks/useEvents'
 import EventCard from '../../components/events/EventCard'
 import EventFilter from '../../components/events/EventFilter'
@@ -6,28 +6,30 @@ import Navbar from '../../components/common/Navbar'
 import Footer from '../../components/common/Footer'
 import LoadingSpinner from '../../components/common/LoadingSpinner'
 
-// Public home page — shows the full catalog of active events.
 function HomePage() {
-  const [selectedCategory, setSelectedCategory] = useState('')
-  const { events, loading, error } = useEvents(selectedCategory)
-
-  // TODO: derive unique categories list from events for EventFilter
-  // TODO: render EventFilter with categories and onChange handler
-  // TODO: render EventCard grid from events array
-  // TODO: show LoadingSpinner while loading
-  // TODO: show error message if error is set
+  const { events, loading, error, filterByCategoria } = useEvents()
+  const navigate = useNavigate()
 
   return (
     <div>
       <Navbar />
-      <main>
-        {/* TODO: implement HomePage layout */}
+      <main style={{ padding: '1rem 2rem' }}>
+        <h1>Eventos disponibles</h1>
+        <EventFilter onFilter={filterByCategoria} />
+
         {loading && <LoadingSpinner />}
-        {error && <p>{error}</p>}
-        <EventFilter selectedCategory={selectedCategory} onChange={setSelectedCategory} />
-        <div>
+        {error && <p style={{ color: 'red' }}>{error}</p>}
+        {!loading && !error && events.length === 0 && (
+          <p>No hay eventos disponibles en este momento.</p>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
           {events.map((event) => (
-            <EventCard key={event.id} event={event} />
+            <EventCard
+              key={event.id}
+              event={event}
+              onClick={(id) => navigate(`/events/${id}`)}
+            />
           ))}
         </div>
       </main>

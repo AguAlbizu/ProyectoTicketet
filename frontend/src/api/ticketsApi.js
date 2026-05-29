@@ -1,16 +1,13 @@
 import api from './axiosConfig'
 
-// POST /tickets — purchases a ticket for an event
-// payload: { event_id }
-export const purchaseTicket = (payload) => api.post('/tickets', payload)
+export const buyTicket = (eventId) =>
+  api.post('/tickets', { event_id: eventId })
 
-// GET /tickets/my — returns the authenticated user's tickets
-export const getMyTickets = () => api.get('/tickets/my')
+export const getMyTickets = () =>
+  api.get('/tickets/my-tickets')
 
-// DELETE /tickets/:id — cancels a ticket
-export const cancelTicket = (id) => api.delete(`/tickets/${id}`)
+export const cancelTicket = (ticketId) =>
+  api.delete(`/tickets/${ticketId}`)
 
-// POST /tickets/:id/transfer — transfers a ticket to another user
-// payload: { target_email }
-export const transferTicket = (id, payload) =>
-  api.post(`/tickets/${id}/transfer`, payload)
+export const transferTicket = (ticketId, targetEmail) =>
+  api.put(`/tickets/${ticketId}/transfer`, { target_email: targetEmail })

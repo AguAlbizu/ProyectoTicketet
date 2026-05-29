@@ -6,30 +6,32 @@ import (
 	"gorm.io/gorm"
 )
 
-// UserDAO handles all database operations for the User model.
 type UserDAO struct {
 	db *gorm.DB
 }
 
-// NewUserDAO creates a new UserDAO with the provided GORM instance.
 func NewUserDAO(db *gorm.DB) *UserDAO {
 	return &UserDAO{db: db}
 }
 
-// Create persists a new user record.
-func (d *UserDAO) Create(user *domain.User) error {
-	// TODO: d.db.Create(user)
-	return nil
+func (d *UserDAO) CreateUser(user *domain.User) error {
+	return d.db.Create(user).Error
 }
 
-// FindByEmail returns the user matching the given email, or an error if not found.
-func (d *UserDAO) FindByEmail(email string) (*domain.User, error) {
-	// TODO: d.db.Where("email = ?", email).First(&user)
-	return nil, nil
+func (d *UserDAO) GetUserByEmail(email string) (*domain.User, error) {
+	var user domain.User
+	err := d.db.Where("email = ?", email).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
-// FindByID returns the user matching the given ID.
-func (d *UserDAO) FindByID(id uint) (*domain.User, error) {
-	// TODO: d.db.First(&user, id)
-	return nil, nil
+func (d *UserDAO) GetUserByID(id uint) (*domain.User, error) {
+	var user domain.User
+	err := d.db.First(&user, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }

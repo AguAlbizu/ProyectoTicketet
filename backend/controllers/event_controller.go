@@ -2,38 +2,46 @@ package controllers
 
 import (
 	"net/http"
+	"strconv"
 	"ticketapp/services"
 
 	"github.com/gin-gonic/gin"
 )
 
-// EventController exposes HTTP handlers for event-related endpoints.
 type EventController struct {
 	eventService *services.EventService
 }
 
-// NewEventController creates a new EventController.
 func NewEventController(eventService *services.EventService) *EventController {
 	return &EventController{eventService: eventService}
 }
 
-// GetEvents handles GET /api/events
-// Acepta query param opcional: ?categoria=<valor>
-// Retorna la lista de eventos activos, filtrada por categoría si se indica.
+// GetEvents handles GET /api/events?categoria=xxx
 func (c *EventController) GetEvents(ctx *gin.Context) {
-	// TODO: leer query param "categoria" con ctx.Query("categoria")
-	// TODO: llamar c.eventService.GetAll(categoria)
-	// TODO: retornar 200 con la lista de eventos en JSON
-	ctx.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	categoria := ctx.Query("categoria")
+	events, err := c.eventService.GetEvents(categoria)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error al obtener eventos"})
+		return
+	}
+	ctx.JSON(http.StatusOK, events)
 }
 
 // GetEventByID handles GET /api/events/:id
-// Retorna el detalle de un evento por su ID.
 func (c *EventController) GetEventByID(ctx *gin.Context) {
-	// TODO: parsear id uint desde ctx.Param("id")
-	// TODO: llamar c.eventService.GetByID(id)
-	// TODO: retornar 200 con el evento o 404 si no existe
-	ctx.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido"})
+		return
+	}
+
+	event, err := c.eventService.GetEventByID(uint(id))
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, event)
 }
 
 // TODO (entrega final): agregar handlers para crear, editar y cancelar eventos (admin)

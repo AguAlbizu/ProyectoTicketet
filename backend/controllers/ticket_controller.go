@@ -2,58 +2,118 @@ package controllers
 
 import (
 	"net/http"
+	"strconv"
 	"ticketapp/services"
 
 	"github.com/gin-gonic/gin"
 )
 
-// TicketController exposes HTTP handlers for ticket-related endpoints.
-// Todas las rutas requieren autenticación JWT.
 type TicketController struct {
 	ticketService *services.TicketService
 }
 
-// NewTicketController creates a new TicketController.
 func NewTicketController(ticketService *services.TicketService) *TicketController {
 	return &TicketController{ticketService: ticketService}
 }
 
+type buyTicketRequest struct {
+	EventID uint `json:"event_id" binding:"required"`
+}
+
+type transferRequest struct {
+	TargetEmail string `json:"target_email" binding:"required"`
+}
+
 // BuyTicket handles POST /api/tickets
-// Compra una entrada para un evento en nombre del usuario autenticado.
 func (c *TicketController) BuyTicket(ctx *gin.Context) {
-	// TODO: obtener userID desde ctx.Get("userID") (seteado por el middleware JWT)
-	// TODO: bindear JSON body a struct con campo event_id
-	// TODO: llamar c.ticketService.Purchase(userID, eventID)
-	// TODO: retornar 201 con el ticket creado, o 400/409 si no hay cupo
-	ctx.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	userID, _ := ctx.Get("userID")
+
+	var req buyTicketRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "event_id es requerido"})
+		return
+	}
+
+	ticket, err := c.ticketService.BuyTicket(userID.(uint), req.EventID)
+	if err != nil {
+		status := http.StatusBadRequest
+		if err.Error() == "evento no encontrado" {
+			status = http.StatusNotFound
+		}
+		ctx.JSON(status, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, ticket)
 }
 
 // GetMyTickets handles GET /api/tickets/my-tickets
-// Retorna todas las entradas del usuario autenticado.
 func (c *TicketController) GetMyTickets(ctx *gin.Context) {
-	// TODO: obtener userID desde ctx.Get("userID")
-	// TODO: llamar c.ticketService.GetByUser(userID)
-	// TODO: retornar 200 con la lista de tickets
-	ctx.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	userID, _ := ctx.Get("userID")
+
+	tickets, err := c.ticketService.GetMyTickets(userID.(uint))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error al obtener entradas"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, tickets)
 }
 
 // CancelTicket handles DELETE /api/tickets/:id
-// Cancela una entrada activa del usuario autenticado.
 func (c *TicketController) CancelTicket(ctx *gin.Context) {
-	// TODO: parsear ticketID desde ctx.Param("id")
-	// TODO: obtener userID desde ctx.Get("userID")
-	// TODO: llamar c.ticketService.Cancel(ticketID, userID)
-	// TODO: retornar 204, o 403 si el ticket no pertenece al usuario, o 404 si no existe
-	ctx.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	userID, _ := ctx.Get("userID")
+
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido"})
+		return
+	}
+
+	err = c.ticketService.CancelTicket(uint(id), userID.(uint))
+	if err != nil {
+		switch err.Error() {
+		case "entrada no encontrada":
+			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case "no tenés permiso para cancelar esta entrada":
+			ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		default:
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "Entrada cancelada"})
 }
 
 // TransferTicket handles PUT /api/tickets/:id/transfer
-// Transfiere una entrada activa a otro usuario identificado por email.
 func (c *TicketController) TransferTicket(ctx *gin.Context) {
-	// TODO: parsear ticketID desde ctx.Param("id")
-	// TODO: obtener ownerID desde ctx.Get("userID")
-	// TODO: bindear JSON body a struct con campo target_email
-	// TODO: llamar c.ticketService.Transfer(ticketID, ownerID, targetEmail)
-	// TODO: retornar 200, o 403/404 según corresponda
-	ctx.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	userID, _ := ctx.Get("userID")
+
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido"})
+		return
+	}
+
+	var req transferRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "target_email es requerido"})
+		return
+	}
+
+	err = c.ticketService.TransferTicket(uint(id), userID.(uint), req.TargetEmail)
+	if err != nil {
+		switch err.Error() {
+		case "usuario destino no encontrado", "entrada no encontrada":
+			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case "no tenés permiso para transferir esta entrada":
+			ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		default:
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "Entrada transferida exitosamente"})
 }

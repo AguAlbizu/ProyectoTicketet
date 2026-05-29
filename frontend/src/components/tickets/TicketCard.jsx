@@ -1,14 +1,33 @@
-// Displays a single ticket with its event details and available actions.
-// Props:
-//   ticket   — { id, status, purchase_date, event: { title, date } }
-//   onCancel — callback(ticketId) to cancel the ticket
-//   onTransfer — callback(ticketId) to open the transfer modal
-function TicketCard({ ticket, onCancel, onTransfer }) {
-  // TODO: render event name, purchase date, status badge
-  // TODO: if status === "activo": show Cancel button (calls onCancel(ticket.id))
-  // TODO: if status === "activo": show Transfer button (calls onTransfer(ticket.id))
+const estadoColor = {
+  activo: 'green',
+  cancelado: 'red',
+  transferido: 'gray',
+}
 
-  return <div>{/* TODO: implement TicketCard UI */}</div>
+function TicketCard({ ticket, onCancel, onTransfer }) {
+  const fecha = ticket.event?.fecha
+    ? new Date(ticket.event.fecha).toLocaleDateString('es-AR')
+    : ''
+
+  return (
+    <div style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
+      <h3>{ticket.event?.titulo || `Evento #${ticket.event_id}`}</h3>
+      <p>{fecha} — {ticket.event?.hora}</p>
+      <p>
+        Estado:{' '}
+        <strong style={{ color: estadoColor[ticket.estado] || 'black' }}>
+          {ticket.estado}
+        </strong>
+      </p>
+
+      {ticket.estado === 'activo' && (
+        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+          <button onClick={() => onCancel(ticket.id)}>Cancelar</button>
+          <button onClick={() => onTransfer(ticket.id)}>Transferir</button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default TicketCard

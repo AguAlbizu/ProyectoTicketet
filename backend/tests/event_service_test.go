@@ -1,46 +1,73 @@
 package tests
 
 // Objetivo de cobertura para la entrega parcial: >= 40% en servicios y controladores.
-// Correr con: go test ./tests/... -cover
+// Correr con: go test ./tests/... -v -cover
 
 import (
 	"testing"
+	"ticketapp/domain"
+	"ticketapp/services"
 
 	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 )
 
-// TestGetAllEvents_ReturnsActiveEvents
-// Caso de éxito: debe retornar solo los eventos con estado "activo".
-func TestGetAllEvents_ReturnsActiveEvents(t *testing.T) {
-	// TODO: seedear eventos activos y cancelados en la DB de test
-	// TODO: llamar service.GetAll("")
-	// TODO: assert que solo se retornen eventos activos
-	// TODO: assert que la cantidad sea la esperada
-	assert.True(t, true, "placeholder — implementar test body")
+// mockEventRepository implementa services.EventRepository para tests sin base de datos.
+type mockEventRepository struct {
+	events  []domain.Event
+	findErr error
 }
 
-// TestGetAllEvents_FilterByCategory
-// Caso de éxito: filtrar por categoría debe retornar solo eventos de esa categoría.
-func TestGetAllEvents_FilterByCategory(t *testing.T) {
-	// TODO: seedear eventos de distintas categorías
-	// TODO: llamar service.GetAll("concierto")
-	// TODO: assert que todos los eventos retornados tengan categoria == "concierto"
-	assert.True(t, true, "placeholder — implementar test body")
+func (m *mockEventRepository) GetAllEvents(categoria string) ([]domain.Event, error) {
+	if categoria == "" {
+		return m.events, m.findErr
+	}
+	var filtered []domain.Event
+	for _, e := range m.events {
+		if e.Categoria == categoria {
+			filtered = append(filtered, e)
+		}
+	}
+	return filtered, m.findErr
 }
 
-// TestGetEventByID_Success
-// Caso de éxito: buscar un evento existente por ID debe retornarlo sin error.
-func TestGetEventByID_Success(t *testing.T) {
-	// TODO: seedear un evento
-	// TODO: llamar service.GetByID(event.ID)
-	// TODO: assert que no haya error y que el evento retornado tenga el ID correcto
-	assert.True(t, true, "placeholder — implementar test body")
+func (m *mockEventRepository) GetEventByID(id uint) (*domain.Event, error) {
+	if m.findErr != nil {
+		return nil, m.findErr
+	}
+	for _, e := range m.events {
+		if e.ID == id {
+			return &e, nil
+		}
+	}
+	return nil, gorm.ErrRecordNotFound
 }
 
-// TestGetEventByID_NotFound
-// Caso de error: buscar un ID inexistente debe retornar error.
+// TestGetEventByID_NotFound verifica que buscar un ID inexistente retorna error.
 func TestGetEventByID_NotFound(t *testing.T) {
-	// TODO: llamar service.GetByID con un ID que no existe (ej: 99999)
-	// TODO: assert que se retorne un error
-	assert.True(t, true, "placeholder — implementar test body")
+	mockDAO := &mockEventRepository{findErr: gorm.ErrRecordNotFound}
+	svc := services.NewEventService(mockDAO)
+
+	_, err := svc.GetEventByID(9999)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "no encontrado")
+}
+
+// TestGetEvents_WithFilter verifica que el filtro por categoría retorna solo los eventos correctos.
+func TestGetEvents_WithFilter(t *testing.T) {
+	mockDAO := &mockEventRepository{
+		events: []domain.Event{
+			{ID: 1, Titulo: "Concierto A", Categoria: "Música", Estado: "activo"},
+			{ID: 2, Titulo: "Obra de teatro", Categoria: "Teatro", Estado: "activo"},
+			{ID: 3, Titulo: "Concierto B", Categoria: "Música", Estado: "activo"},
+		},
+	}
+	svc := services.NewEventService(mockDAO)
+
+	eventos, err := svc.GetEvents("Música")
+	assert.NoError(t, err)
+	assert.Len(t, eventos, 2)
+	for _, e := range eventos {
+		assert.Equal(t, "Música", e.Categoria)
+	}
 }

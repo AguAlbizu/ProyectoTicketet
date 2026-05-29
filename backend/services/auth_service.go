@@ -1,52 +1,67 @@
 package services
 
 import (
-	"ticketapp/dao"
+	"fmt"
 	"ticketapp/domain"
 	"ticketapp/utils"
+
+	"gorm.io/gorm"
 )
 
-// AuthService handles registration, login, and token management.
-type AuthService struct {
-	userDAO *dao.UserDAO
+// AuthUserDAO define los métodos de persistencia requeridos por AuthService.
+type AuthUserDAO interface {
+	CreateUser(user *domain.User) error
+	GetUserByEmail(email string) (*domain.User, error)
+	GetUserByID(id uint) (*domain.User, error)
 }
 
-// NewAuthService creates a new AuthService with its required dependencies.
-func NewAuthService(userDAO *dao.UserDAO) *AuthService {
+type AuthService struct {
+	userDAO AuthUserDAO
+}
+
+func NewAuthService(userDAO AuthUserDAO) *AuthService {
 	return &AuthService{userDAO: userDAO}
 }
 
-// RegisterInput holds the data required to register a new user.
-type RegisterInput struct {
-	Name     string
-	Email    string
-	Password string
-	Role     string
+// Register hashea la contraseña y crea un nuevo usuario con rol "cliente".
+// Retorna error si el email ya está registrado.
+func (s *AuthService) Register(nombre, email, password string) error {
+	_, err := s.userDAO.GetUserByEmail(email)
+	if err == nil {
+		return fmt.Errorf("el email ya está registrado")
+	}
+	if err != gorm.ErrRecordNotFound {
+		return fmt.Errorf("error al verificar email: %w", err)
+	}
+
+	user := &domain.User{
+		Nombre:   nombre,
+		Email:    email,
+		Password: utils.HashPassword(password),
+		Rol:      "cliente",
+	}
+	return s.userDAO.CreateUser(user)
 }
 
-// Register creates a new user account after validating the input.
-// Returns the created user or an error (e.g. email already taken).
-func (s *AuthService) Register(input RegisterInput) (*domain.User, error) {
-	// TODO: validate that email is not already registered (userDAO.FindByEmail)
-	// TODO: hash password with utils.HashPassword
-	// TODO: create and persist user via userDAO.Create
-	// TODO: return user
-	_ = utils.HashPassword
-	return nil, nil
+// Login verifica credenciales y retorna un JWT firmado.
+func (s *AuthService) Login(email, password string) (string, error) {
+	user, err := s.userDAO.GetUserByEmail(email)
+	if err != nil {
+		return "", fmt.Errorf("credenciales inválidas")
+	}
+
+	if !utils.CheckPassword(password, user.Password) {
+		return "", fmt.Errorf("credenciales inválidas")
+	}
+
+	token, err := utils.GenerateToken(user.ID, user.Rol, user.Email)
+	if err != nil {
+		return "", fmt.Errorf("error al generar token: %w", err)
+	}
+	return token, nil
 }
 
-// LoginOutput holds the data returned after a successful login.
-type LoginOutput struct {
-	Token string
-	User  *domain.User
-}
-
-// Login authenticates a user and returns a signed JWT on success.
-func (s *AuthService) Login(email, password string) (*LoginOutput, error) {
-	// TODO: find user by email (userDAO.FindByEmail)
-	// TODO: verify password with utils.CheckPassword
-	// TODO: generate JWT with utils.GenerateToken(user.ID, string(user.Role))
-	// TODO: return LoginOutput{Token, User}
-	_ = utils.GenerateToken
-	return nil, nil
+// GetUserByEmail expone la búsqueda de usuario para el controller de login.
+func (s *AuthService) GetUserByEmail(email string) (*domain.User, error) {
+	return s.userDAO.GetUserByEmail(email)
 }

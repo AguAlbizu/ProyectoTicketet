@@ -1,54 +1,136 @@
 package services
 
 import (
-	"ticketapp/dao"
+	"fmt"
+	"time"
 	"ticketapp/domain"
 )
 
-// TicketService handles business logic for ticket purchasing, cancellation, and transfer.
+// TicketDAOPort define los métodos de persistencia de tickets.
+type TicketDAOPort interface {
+	CreateTicket(ticket *domain.Ticket) error
+	GetTicketsByUserID(userID uint) ([]domain.Ticket, error)
+	GetTicketByID(id uint) (*domain.Ticket, error)
+	UpdateTicket(ticket *domain.Ticket) error
+}
+
+// EventDAOPort define los métodos de eventos requeridos por TicketService.
+type EventDAOPort interface {
+	GetEventByID(id uint) (*domain.Event, error)
+	UpdateEvent(event *domain.Event) error
+}
+
+// UserDAOPort define los métodos de usuarios requeridos por TicketService.
+type UserDAOPort interface {
+	GetUserByEmail(email string) (*domain.User, error)
+}
+
 type TicketService struct {
-	ticketDAO *dao.TicketDAO
-	eventDAO  *dao.EventDAO
-	userDAO   *dao.UserDAO
+	ticketDAO TicketDAOPort
+	eventDAO  EventDAOPort
+	userDAO   UserDAOPort
 }
 
-// NewTicketService creates a new TicketService with its required dependencies.
-func NewTicketService(ticketDAO *dao.TicketDAO, eventDAO *dao.EventDAO, userDAO *dao.UserDAO) *TicketService {
-	return &TicketService{
-		ticketDAO: ticketDAO,
-		eventDAO:  eventDAO,
-		userDAO:   userDAO,
+func NewTicketService(ticketDAO TicketDAOPort, eventDAO EventDAOPort, userDAO UserDAOPort) *TicketService {
+	return &TicketService{ticketDAO: ticketDAO, eventDAO: eventDAO, userDAO: userDAO}
+}
+
+// BuyTicket verifica cupo, crea el ticket y decrementa CupoDisponible del evento.
+func (s *TicketService) BuyTicket(userID, eventID uint) (*domain.Ticket, error) {
+	event, err := s.eventDAO.GetEventByID(eventID)
+	if err != nil {
+		return nil, fmt.Errorf("evento no encontrado")
 	}
+	if event.Estado == "cancelado" {
+		return nil, fmt.Errorf("el evento está cancelado")
+	}
+	if event.CupoDisponible <= 0 {
+		return nil, fmt.Errorf("no hay cupo disponible para este evento")
+	}
+
+	ticket := &domain.Ticket{
+		UserID:      userID,
+		EventID:     eventID,
+		Estado:      "activo",
+		FechaCompra: time.Now(),
+	}
+	if err := s.ticketDAO.CreateTicket(ticket); err != nil {
+		return nil, fmt.Errorf("error al crear la entrada: %w", err)
+	}
+
+	event.CupoDisponible--
+	if err := s.eventDAO.UpdateEvent(event); err != nil {
+		// TODO (entrega final): revertir ticket si falla la actualización del cupo
+		return nil, fmt.Errorf("error al actualizar el cupo del evento: %w", err)
+	}
+
+	return s.ticketDAO.GetTicketByID(ticket.ID)
 }
 
-// Purchase creates a ticket for a user for a given event.
-// Validates that the event is active and has available tickets, then decrements AvailableTickets.
-func (s *TicketService) Purchase(userID, eventID uint) (*domain.Ticket, error) {
-	// TODO: fetch event with eventDAO.FindByID, verify status == active and available_tickets > 0
-	// TODO: create domain.Ticket{UserID, EventID, Status: active, PurchaseDate: now}
-	// TODO: call ticketDAO.Create
-	// TODO: decrement event.AvailableTickets and call eventDAO.Update
-	return nil, nil
+// GetMyTickets retorna todas las entradas del usuario con el evento precargado.
+func (s *TicketService) GetMyTickets(userID uint) ([]domain.Ticket, error) {
+	return s.ticketDAO.GetTicketsByUserID(userID)
 }
 
-// GetByUser returns all tickets belonging to the authenticated user.
-func (s *TicketService) GetByUser(userID uint) ([]domain.Ticket, error) {
-	// TODO: delegate to ticketDAO.FindByUserID(userID)
-	return nil, nil
-}
+// CancelTicket cancela una entrada activa y devuelve el cupo al evento.
+func (s *TicketService) CancelTicket(ticketID, userID uint) error {
+	ticket, err := s.ticketDAO.GetTicketByID(ticketID)
+	if err != nil {
+		return fmt.Errorf("entrada no encontrada")
+	}
+	if ticket.UserID != userID {
+		return fmt.Errorf("no tenés permiso para cancelar esta entrada")
+	}
+	if ticket.Estado != "activo" {
+		return fmt.Errorf("solo se pueden cancelar entradas activas")
+	}
 
-// Cancel marks a ticket as cancelled and restores the event's available slot.
-func (s *TicketService) Cancel(ticketID, userID uint) error {
-	// TODO: fetch ticket, verify it belongs to userID and status == active
-	// TODO: set ticket.Status = cancelled, call ticketDAO.Update
-	// TODO: increment event.AvailableTickets, call eventDAO.Update
+	ticket.Estado = "cancelado"
+	if err := s.ticketDAO.UpdateTicket(ticket); err != nil {
+		return fmt.Errorf("error al cancelar la entrada: %w", err)
+	}
+
+	// Devolver cupo al evento
+	event, err := s.eventDAO.GetEventByID(ticket.EventID)
+	if err == nil {
+		event.CupoDisponible++
+		// TODO (entrega final): manejar el error con una transacción
+		s.eventDAO.UpdateEvent(event)
+	}
 	return nil
 }
 
-// Transfer reassigns a ticket to a different user by email.
-func (s *TicketService) Transfer(ticketID, ownerID uint, targetEmail string) error {
-	// TODO: fetch ticket, verify it belongs to ownerID and status == active
-	// TODO: find target user by email with userDAO.FindByEmail
-	// TODO: set ticket.UserID = target.ID, Status = transferred, call ticketDAO.Update
+// TransferTicket transfiere una entrada activa a otro usuario y crea una nueva entrada para el destino.
+func (s *TicketService) TransferTicket(ticketID, ownerID uint, targetEmail string) error {
+	ticket, err := s.ticketDAO.GetTicketByID(ticketID)
+	if err != nil {
+		return fmt.Errorf("entrada no encontrada")
+	}
+	if ticket.UserID != ownerID {
+		return fmt.Errorf("no tenés permiso para transferir esta entrada")
+	}
+	if ticket.Estado != "activo" {
+		return fmt.Errorf("solo se pueden transferir entradas activas")
+	}
+
+	targetUser, err := s.userDAO.GetUserByEmail(targetEmail)
+	if err != nil {
+		return fmt.Errorf("usuario destino no encontrado")
+	}
+
+	ticket.Estado = "transferido"
+	if err := s.ticketDAO.UpdateTicket(ticket); err != nil {
+		return fmt.Errorf("error al transferir la entrada: %w", err)
+	}
+
+	newTicket := &domain.Ticket{
+		UserID:      targetUser.ID,
+		EventID:     ticket.EventID,
+		Estado:      "activo",
+		FechaCompra: time.Now(),
+	}
+	if err := s.ticketDAO.CreateTicket(newTicket); err != nil {
+		return fmt.Errorf("error al crear la entrada para el destinatario: %w", err)
+	}
 	return nil
 }

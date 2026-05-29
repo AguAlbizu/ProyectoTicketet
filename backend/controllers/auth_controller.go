@@ -2,35 +2,75 @@ package controllers
 
 import (
 	"net/http"
+	"strings"
 	"ticketapp/services"
 
 	"github.com/gin-gonic/gin"
 )
 
-// AuthController exposes HTTP handlers for authentication endpoints.
 type AuthController struct {
 	authService *services.AuthService
 }
 
-// NewAuthController creates a new AuthController.
 func NewAuthController(authService *services.AuthService) *AuthController {
 	return &AuthController{authService: authService}
 }
 
+type registerRequest struct {
+	Nombre   string `json:"nombre" binding:"required"`
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+type loginRequest struct {
+	Email    string `json:"email" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
 // Register handles POST /api/auth/register
-// Registra un nuevo usuario con rol "cliente" por defecto.
 func (c *AuthController) Register(ctx *gin.Context) {
-	// TODO: bindear JSON body a struct con campos name, email, password
-	// TODO: llamar c.authService.Register(input)
-	// TODO: retornar 201 con el usuario creado, o 400 si faltan campos, o 409 si el email ya existe
-	ctx.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	var req registerRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Faltan campos requeridos: nombre, email, password"})
+		return
+	}
+
+	err := c.authService.Register(req.Nombre, req.Email, req.Password)
+	if err != nil {
+		if strings.Contains(err.Error(), "ya está registrado") {
+			ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error al registrar usuario"})
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, gin.H{"message": "Usuario registrado exitosamente"})
 }
 
 // Login handles POST /api/auth/login
-// Autentica un usuario existente y retorna un JWT.
 func (c *AuthController) Login(ctx *gin.Context) {
-	// TODO: bindear JSON body a struct con campos email, password
-	// TODO: llamar c.authService.Login(email, password)
-	// TODO: retornar 200 con { token, user }, o 401 si las credenciales son inválidas
-	ctx.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	var req loginRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Email y password son requeridos"})
+		return
+	}
+
+	token, err := c.authService.Login(req.Email, req.Password)
+	if err != nil {
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Credenciales inválidas"})
+		return
+	}
+
+	user, _ := c.authService.GetUserByEmail(req.Email)
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"token": token,
+		"user": gin.H{
+			"id":     user.ID,
+			"nombre": user.Nombre,
+			"email":  user.Email,
+			"rol":    user.Rol,
+		},
+	})
 }
