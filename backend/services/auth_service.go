@@ -21,7 +21,7 @@ type RegisterInput struct {
 	Name     string
 	Email    string
 	Password string
-	Role     domain.Role
+	Role     string
 }
 
 // Register creates a new user account after validating the input.
