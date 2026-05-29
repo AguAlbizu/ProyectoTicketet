@@ -17,27 +17,20 @@ func NewAuthController(authService *services.AuthService) *AuthController {
 	return &AuthController{authService: authService}
 }
 
-// RegisterRoutes wires the auth endpoints onto the given router group.
-// POST /api/auth/register
-// POST /api/auth/login
-func (c *AuthController) RegisterRoutes(rg *gin.RouterGroup) {
-	auth := rg.Group("/auth")
-	auth.POST("/register", c.Register)
-	auth.POST("/login", c.Login)
-}
-
-// Register handles POST /api/auth/register.
+// Register handles POST /api/auth/register
+// Registra un nuevo usuario con rol "cliente" por defecto.
 func (c *AuthController) Register(ctx *gin.Context) {
-	// TODO: bind JSON body to RegisterInput struct
-	// TODO: call authService.Register(input)
-	// TODO: return 201 with user JSON or 400/409 on error
+	// TODO: bindear JSON body a struct con campos name, email, password
+	// TODO: llamar c.authService.Register(input)
+	// TODO: retornar 201 con el usuario creado, o 400 si faltan campos, o 409 si el email ya existe
 	ctx.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
 }
 
-// Login handles POST /api/auth/login.
+// Login handles POST /api/auth/login
+// Autentica un usuario existente y retorna un JWT.
 func (c *AuthController) Login(ctx *gin.Context) {
-	// TODO: bind JSON body to {email, password}
-	// TODO: call authService.Login(email, password)
-	// TODO: return 200 with {token, user} or 401 on invalid credentials
+	// TODO: bindear JSON body a struct con campos email, password
+	// TODO: llamar c.authService.Login(email, password)
+	// TODO: retornar 200 con { token, user }, o 401 si las credenciales son inválidas
 	ctx.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
 }

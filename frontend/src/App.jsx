@@ -10,29 +10,25 @@ import EventDetailPage from './pages/client/EventDetailPage'
 import MyTicketsPage from './pages/client/MyTicketsPage'
 import PurchaseSuccessPage from './pages/client/PurchaseSuccessPage'
 
-// Admin pages
-import AdminDashboardPage from './pages/admin/AdminDashboardPage'
-import EventFormPage from './pages/admin/EventFormPage'
-import EventReportPage from './pages/admin/EventReportPage'
-import RaffleManagerPage from './pages/admin/RaffleManagerPage'
-
 // Common components
 import ProtectedRoute from './components/common/ProtectedRoute'
+
+// TODO (entrega final): agregar rutas protegidas por rol de administrador
 
 function App() {
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      {/* Rutas públicas */}
       <Route path="/" element={<HomePage />} />
       <Route path="/events/:id" element={<EventDetailPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
 
-      {/* Client-only routes (role: cliente) */}
+      {/* Rutas protegidas — requieren token JWT válido */}
       <Route
         path="/my-tickets"
         element={
-          <ProtectedRoute requiredRole="cliente">
+          <ProtectedRoute>
             <MyTicketsPage />
           </ProtectedRoute>
         }
@@ -40,50 +36,8 @@ function App() {
       <Route
         path="/purchase-success"
         element={
-          <ProtectedRoute requiredRole="cliente">
+          <ProtectedRoute>
             <PurchaseSuccessPage />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Admin-only routes (role: admin) */}
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <AdminDashboardPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/events/new"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <EventFormPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/events/:id/edit"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <EventFormPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/events/:id/report"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <EventReportPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin/raffles/:id"
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <RaffleManagerPage />
           </ProtectedRoute>
         }
       />

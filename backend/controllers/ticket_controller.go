@@ -8,6 +8,7 @@ import (
 )
 
 // TicketController exposes HTTP handlers for ticket-related endpoints.
+// Todas las rutas requieren autenticación JWT.
 type TicketController struct {
 	ticketService *services.TicketService
 }
@@ -17,51 +18,42 @@ func NewTicketController(ticketService *services.TicketService) *TicketControlle
 	return &TicketController{ticketService: ticketService}
 }
 
-// RegisterRoutes wires the ticket endpoints onto the given router group.
-// All routes require authentication (client role).
-// POST   /api/tickets              - purchase a ticket for an event
-// GET    /api/tickets/my           - list my tickets
-// DELETE /api/tickets/:id          - cancel a ticket
-// POST   /api/tickets/:id/transfer - transfer ticket to another user
-func (c *TicketController) RegisterRoutes(rg *gin.RouterGroup, authMiddleware gin.HandlerFunc) {
-	tickets := rg.Group("/tickets")
-	tickets.Use(authMiddleware)
-	tickets.POST("", c.Purchase)
-	tickets.GET("/my", c.GetMyTickets)
-	tickets.DELETE("/:id", c.Cancel)
-	tickets.POST("/:id/transfer", c.Transfer)
-}
-
-// Purchase handles POST /api/tickets.
-func (c *TicketController) Purchase(ctx *gin.Context) {
-	// TODO: get authenticated userID from context (set by JWT middleware)
-	// TODO: bind JSON body to {event_id}
-	// TODO: call ticketService.Purchase(userID, eventID)
-	// TODO: return 201 with ticket JSON or 400/409 on error
+// BuyTicket handles POST /api/tickets
+// Compra una entrada para un evento en nombre del usuario autenticado.
+func (c *TicketController) BuyTicket(ctx *gin.Context) {
+	// TODO: obtener userID desde ctx.Get("userID") (seteado por el middleware JWT)
+	// TODO: bindear JSON body a struct con campo event_id
+	// TODO: llamar c.ticketService.Purchase(userID, eventID)
+	// TODO: retornar 201 con el ticket creado, o 400/409 si no hay cupo
 	ctx.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
 }
 
-// GetMyTickets handles GET /api/tickets/my.
+// GetMyTickets handles GET /api/tickets/my-tickets
+// Retorna todas las entradas del usuario autenticado.
 func (c *TicketController) GetMyTickets(ctx *gin.Context) {
-	// TODO: get authenticated userID from context
-	// TODO: call ticketService.GetByUser(userID)
-	// TODO: return 200 with tickets JSON
+	// TODO: obtener userID desde ctx.Get("userID")
+	// TODO: llamar c.ticketService.GetByUser(userID)
+	// TODO: retornar 200 con la lista de tickets
 	ctx.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
 }
 
-// Cancel handles DELETE /api/tickets/:id.
-func (c *TicketController) Cancel(ctx *gin.Context) {
-	// TODO: parse ticketID, get userID from context
-	// TODO: call ticketService.Cancel(ticketID, userID)
-	// TODO: return 204 or 403/404
+// CancelTicket handles DELETE /api/tickets/:id
+// Cancela una entrada activa del usuario autenticado.
+func (c *TicketController) CancelTicket(ctx *gin.Context) {
+	// TODO: parsear ticketID desde ctx.Param("id")
+	// TODO: obtener userID desde ctx.Get("userID")
+	// TODO: llamar c.ticketService.Cancel(ticketID, userID)
+	// TODO: retornar 204, o 403 si el ticket no pertenece al usuario, o 404 si no existe
 	ctx.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
 }
 
-// Transfer handles POST /api/tickets/:id/transfer.
-func (c *TicketController) Transfer(ctx *gin.Context) {
-	// TODO: parse ticketID, get ownerID from context
-	// TODO: bind JSON body to {target_email}
-	// TODO: call ticketService.Transfer(ticketID, ownerID, targetEmail)
-	// TODO: return 200 or 403/404
+// TransferTicket handles PUT /api/tickets/:id/transfer
+// Transfiere una entrada activa a otro usuario identificado por email.
+func (c *TicketController) TransferTicket(ctx *gin.Context) {
+	// TODO: parsear ticketID desde ctx.Param("id")
+	// TODO: obtener ownerID desde ctx.Get("userID")
+	// TODO: bindear JSON body a struct con campo target_email
+	// TODO: llamar c.ticketService.Transfer(ticketID, ownerID, targetEmail)
+	// TODO: retornar 200, o 403/404 según corresponda
 	ctx.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
 }
