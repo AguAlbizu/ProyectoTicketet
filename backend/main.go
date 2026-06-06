@@ -31,7 +31,9 @@ func main() {
 		os.Getenv("DB_NAME"),
 	)
 
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
+		DisableForeignKeyConstraintWhenMigrating: true,
+	})
 	if err != nil {
 		log.Fatal("Error al conectar con la base de datos:", err)
 	}
@@ -58,9 +60,12 @@ func main() {
 
 	r := gin.Default()
 
-	// CORS: permitir peticiones desde el frontend en localhost:5173
+	// CORS: permitir peticiones desde el frontend en localhost:5173 o 5174
 	r.Use(func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "http://localhost:5173")
+		origin := c.Request.Header.Get("Origin")
+		if origin == "http://localhost:5173" || origin == "http://localhost:5174" {
+			c.Header("Access-Control-Allow-Origin", origin)
+		}
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if c.Request.Method == http.MethodOptions {

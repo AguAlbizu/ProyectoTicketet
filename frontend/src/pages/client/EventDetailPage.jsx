@@ -62,7 +62,6 @@ function EventDetailPage() {
         )}
         <h1>{event.titulo}</h1>
         <p><strong>Fecha:</strong> {fecha} — <strong>Hora:</strong> {event.hora}</p>
-        <p><strong>Duración:</strong> {event.duracion}</p>
         <p><strong>Categoría:</strong> {event.categoria}</p>
         <p><strong>Capacidad:</strong> {event.capacidad} — <strong>Cupo disponible:</strong> {event.cupo_disponible}</p>
         <p>{event.descripcion}</p>

@@ -26,7 +26,7 @@ function HomePage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
           {events.map((event) => (
             <EventCard
-              key={event.id}
+              key={event.id_events}
               event={event}
               onClick={(id) => navigate(`/events/${id}`)}
             />

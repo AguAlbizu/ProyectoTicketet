@@ -5,7 +5,7 @@ function EventCard({ event, onClick }) {
 
   return (
     <div
-      onClick={() => onClick(event.id)}
+      onClick={() => onClick(event.id_events)}
       style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '1rem', cursor: 'pointer' }}
     >
       {event.imagen_url && (

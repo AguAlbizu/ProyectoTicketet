@@ -36,7 +36,7 @@ func (m *mockEventRepository) GetEventByID(id uint) (*domain.Event, error) {
 		return nil, m.findErr
 	}
 	for _, e := range m.events {
-		if e.ID == id {
+		if e.IDEvents == id {
 			return &e, nil
 		}
 	}
@@ -57,9 +57,9 @@ func TestGetEventByID_NotFound(t *testing.T) {
 func TestGetEvents_WithFilter(t *testing.T) {
 	mockDAO := &mockEventRepository{
 		events: []domain.Event{
-			{ID: 1, Titulo: "Concierto A", Categoria: "Música", Estado: "activo"},
-			{ID: 2, Titulo: "Obra de teatro", Categoria: "Teatro", Estado: "activo"},
-			{ID: 3, Titulo: "Concierto B", Categoria: "Música", Estado: "activo"},
+			{IDEvents: 1, Titulo: "Concierto A", Categoria: "Música", Estado: "activo"},
+			{IDEvents: 2, Titulo: "Obra de teatro", Categoria: "Teatro", Estado: "activo"},
+			{IDEvents: 3, Titulo: "Concierto B", Categoria: "Música", Estado: "activo"},
 		},
 	}
 	svc := services.NewEventService(mockDAO)

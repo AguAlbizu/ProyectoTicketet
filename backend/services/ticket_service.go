@@ -49,8 +49,8 @@ func (s *TicketService) BuyTicket(userID, eventID uint) (*domain.Ticket, error) 
 	}
 
 	ticket := &domain.Ticket{
-		UserID:      userID,
-		EventID:     eventID,
+		IDUsers:     userID,
+		IDEvents:    eventID,
 		Estado:      "activo",
 		FechaCompra: time.Now(),
 	}
@@ -64,7 +64,7 @@ func (s *TicketService) BuyTicket(userID, eventID uint) (*domain.Ticket, error) 
 		return nil, fmt.Errorf("error al actualizar el cupo del evento: %w", err)
 	}
 
-	return s.ticketDAO.GetTicketByID(ticket.ID)
+	return s.ticketDAO.GetTicketByID(ticket.IDTickets)
 }
 
 // GetMyTickets retorna todas las entradas del usuario con el evento precargado.
@@ -78,7 +78,7 @@ func (s *TicketService) CancelTicket(ticketID, userID uint) error {
 	if err != nil {
 		return fmt.Errorf("entrada no encontrada")
 	}
-	if ticket.UserID != userID {
+	if ticket.IDUsers != userID {
 		return fmt.Errorf("no tenés permiso para cancelar esta entrada")
 	}
 	if ticket.Estado != "activo" {
@@ -91,7 +91,7 @@ func (s *TicketService) CancelTicket(ticketID, userID uint) error {
 	}
 
 	// Devolver cupo al evento
-	event, err := s.eventDAO.GetEventByID(ticket.EventID)
+	event, err := s.eventDAO.GetEventByID(ticket.IDEvents)
 	if err == nil {
 		event.CupoDisponible++
 		// TODO (entrega final): manejar el error con una transacción
@@ -106,7 +106,7 @@ func (s *TicketService) TransferTicket(ticketID, ownerID uint, targetEmail strin
 	if err != nil {
 		return fmt.Errorf("entrada no encontrada")
 	}
-	if ticket.UserID != ownerID {
+	if ticket.IDUsers != ownerID {
 		return fmt.Errorf("no tenés permiso para transferir esta entrada")
 	}
 	if ticket.Estado != "activo" {
@@ -124,8 +124,8 @@ func (s *TicketService) TransferTicket(ticketID, ownerID uint, targetEmail strin
 	}
 
 	newTicket := &domain.Ticket{
-		UserID:      targetUser.ID,
-		EventID:     ticket.EventID,
+		IDUsers:  targetUser.IDUsers,
+		IDEvents: ticket.IDEvents,
 		Estado:      "activo",
 		FechaCompra: time.Now(),
 	}

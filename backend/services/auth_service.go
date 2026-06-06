@@ -54,7 +54,7 @@ func (s *AuthService) Login(email, password string) (string, error) {
 		return "", fmt.Errorf("credenciales inválidas")
 	}
 
-	token, err := utils.GenerateToken(user.ID, user.Rol, user.Email)
+	token, err := utils.GenerateToken(user.IDUsers, user.Rol, user.Email)
 	if err != nil {
 		return "", fmt.Errorf("error al generar token: %w", err)
 	}

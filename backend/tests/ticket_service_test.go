@@ -23,7 +23,7 @@ type mockTicketDAO struct {
 }
 
 func (m *mockTicketDAO) CreateTicket(t *domain.Ticket) error {
-	t.ID = 1
+	t.IDTickets = 1
 	m.ticket = t
 	return m.createErr
 }
@@ -74,7 +74,7 @@ func (m *mockUserDAOForTicket) GetUserByEmail(email string) (*domain.User, error
 // TestBuyTicket_NoCapacity verifica que comprar cuando cupo_disponible == 0 retorna error.
 func TestBuyTicket_NoCapacity(t *testing.T) {
 	eventDAO := &mockEventDAOForTicket{
-		event: &domain.Event{ID: 1, Titulo: "Evento lleno", Estado: "activo", CupoDisponible: 0},
+		event: &domain.Event{IDEvents: 1, Titulo: "Evento lleno", Estado: "activo", CupoDisponible: 0},
 	}
 	svc := services.NewTicketService(&mockTicketDAO{}, eventDAO, &mockUserDAOForTicket{})
 
@@ -86,9 +86,9 @@ func TestBuyTicket_NoCapacity(t *testing.T) {
 // TestCancelTicket_NotOwner verifica que cancelar un ticket ajeno retorna error 403.
 func TestCancelTicket_NotOwner(t *testing.T) {
 	ticketDAO := &mockTicketDAO{
-		ticket: &domain.Ticket{ID: 1, UserID: 99, Estado: "activo"},
+		ticket: &domain.Ticket{IDTickets: 1, IDUsers: 99, Estado: "activo"},
 	}
-	svc := services.NewTicketService(ticketDAO, &mockEventDAOForTicket{event: &domain.Event{ID: 1}}, &mockUserDAOForTicket{})
+	svc := services.NewTicketService(ticketDAO, &mockEventDAOForTicket{event: &domain.Event{IDEvents: 1}}, &mockUserDAOForTicket{})
 
 	err := svc.CancelTicket(1, 1) // usuario 1 intenta cancelar ticket del usuario 99
 	assert.Error(t, err)
@@ -98,10 +98,10 @@ func TestCancelTicket_NotOwner(t *testing.T) {
 // TestCancelTicket_RestoresCapacity verifica que al cancelar el cupo del evento se incrementa en 1.
 func TestCancelTicket_RestoresCapacity(t *testing.T) {
 	ticketDAO := &mockTicketDAO{
-		ticket: &domain.Ticket{ID: 1, UserID: 1, EventID: 1, Estado: "activo"},
+		ticket: &domain.Ticket{IDTickets: 1, IDUsers: 1, IDEvents: 1, Estado: "activo"},
 	}
 	eventDAO := &mockEventDAOForTicket{
-		event: &domain.Event{ID: 1, CupoDisponible: 5},
+		event: &domain.Event{IDEvents: 1, CupoDisponible: 5},
 	}
 	svc := services.NewTicketService(ticketDAO, eventDAO, &mockUserDAOForTicket{})
 
