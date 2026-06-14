@@ -2,14 +2,13 @@ const CATEGORIAS = ['Todas', 'Música', 'Teatro', 'Deportes', 'Cine', 'Otro']
 
 function EventFilter({ onFilter }) {
   const handleChange = (e) => {
-    const value = e.target.value === 'Todas' ? '' : e.target.value
-    onFilter(value)
+    onFilter(e.target.value === 'Todas' ? '' : e.target.value)
   }
 
   return (
-    <div style={{ marginBottom: '1rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-      <label htmlFor="categoria">Filtrar por categoría:</label>
-      <select id="categoria" onChange={handleChange}>
+    <div className="filter-bar">
+      <span className="filter-label">Filtrar por:</span>
+      <select className="form-select" style={{ width: 'auto' }} id="categoria" onChange={handleChange}>
         {CATEGORIAS.map((cat) => (
           <option key={cat} value={cat}>{cat}</option>
         ))}

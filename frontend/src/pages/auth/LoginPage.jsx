@@ -25,37 +25,50 @@ function LoginPage() {
   }
 
   return (
-    <div style={{ maxWidth: '400px', margin: '4rem auto', padding: '2rem', border: '1px solid #ccc', borderRadius: '8px' }}>
-      <h2>Iniciar Sesión</h2>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>Email</label><br />
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ width: '100%', padding: '0.5rem' }}
-          />
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>Contraseña</label><br />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ width: '100%', padding: '0.5rem' }}
-          />
-        </div>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button type="submit" disabled={loading} style={{ width: '100%', padding: '0.75rem' }}>
-          {loading ? 'Ingresando...' : 'Ingresar'}
-        </button>
-      </form>
-      <p style={{ marginTop: '1rem', textAlign: 'center' }}>
-        ¿No tenés cuenta? <Link to="/register">Registrarse</Link>
-      </p>
+    <div className="auth-wrapper">
+      <div className="auth-card">
+        <img src="/logo.png" alt="TicketApp" style={{ height: '48px', marginBottom: '1.25rem', display: 'block' }} />
+        <h2 className="auth-title">Bienvenido de vuelta</h2>
+        <p className="auth-subtitle">Ingresá a tu cuenta para ver tus entradas</p>
+
+        {error && <div className="alert alert-error">{error}</div>}
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label" htmlFor="email">Email</label>
+            <input
+              className="form-input"
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+              placeholder="tu@email.com"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="password">Contraseña</label>
+            <input
+              className="form-input"
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="••••••••"
+            />
+          </div>
+          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+            {loading ? 'Ingresando...' : 'Ingresar'}
+          </button>
+        </form>
+
+        <p className="auth-footer">
+          ¿No tenés cuenta?{' '}
+          <Link to="/register">Registrate gratis</Link>
+        </p>
+      </div>
     </div>
   )
 }

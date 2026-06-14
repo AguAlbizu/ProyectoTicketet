@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getEventById } from '../../api/eventsApi'
 import { buyTicket } from '../../api/ticketsApi'
 import Navbar from '../../components/common/Navbar'
+import Footer from '../../components/common/Footer'
 import LoadingSpinner from '../../components/common/LoadingSpinner'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -39,7 +40,7 @@ function EventDetailPage() {
     setBuyError('')
     setBuying(true)
     try {
-      await buyTicket(id)
+      await buyTicket(Number(id))
       navigate('/purchase-success')
     } catch (err) {
       setBuyError(err.response?.data?.error || 'Error al comprar la entrada')
@@ -48,34 +49,90 @@ function EventDetailPage() {
     }
   }
 
-  if (loading) return <><Navbar /><LoadingSpinner /></>
-  if (error) return <><Navbar /><p style={{ padding: '2rem', color: 'red' }}>{error}</p></>
+  if (loading) return <div className="page-wrapper"><Navbar /><LoadingSpinner /></div>
 
-  const fecha = event.fecha ? new Date(event.fecha).toLocaleDateString('es-AR') : ''
+  if (error) return (
+    <div className="page-wrapper">
+      <Navbar />
+      <main className="page-main">
+        <div className="alert alert-error">{error}</div>
+        <button className="btn btn-outline" onClick={() => navigate('/')}>Volver al catálogo</button>
+      </main>
+    </div>
+  )
+
+  const fecha = event.fecha
+    ? new Date(event.fecha).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    : ''
 
   return (
-    <div>
+    <div className="page-wrapper">
       <Navbar />
-      <main style={{ padding: '1rem 2rem', maxWidth: '800px', margin: '0 auto' }}>
+      <main className="page-main-narrow">
         {event.imagen_url && (
-          <img src={event.imagen_url} alt={event.titulo} style={{ width: '100%', maxHeight: '350px', objectFit: 'cover', borderRadius: '8px' }} />
+          <img className="event-detail-img" src={event.imagen_url} alt={event.titulo} />
         )}
-        <h1>{event.titulo}</h1>
-        <p><strong>Fecha:</strong> {fecha} — <strong>Hora:</strong> {event.hora}</p>
-        <p><strong>Categoría:</strong> {event.categoria}</p>
-        <p><strong>Capacidad:</strong> {event.capacidad} — <strong>Cupo disponible:</strong> {event.cupo_disponible}</p>
-        <p>{event.descripcion}</p>
 
-        {buyError && <p style={{ color: 'red' }}>{buyError}</p>}
+        <span className="badge badge-category" style={{ marginBottom: '0.75rem', display: 'inline-block' }}>
+          {event.categoria}
+        </span>
+        <h1 className="page-title">{event.titulo}</h1>
 
-        {event.cupo_disponible === 0 ? (
-          <button disabled style={{ padding: '0.75rem 2rem', marginTop: '1rem' }}>Sin cupo</button>
-        ) : (
-          <button onClick={handlePurchase} disabled={buying} style={{ padding: '0.75rem 2rem', marginTop: '1rem' }}>
-            {buying ? 'Procesando...' : 'Comprar Entrada'}
-          </button>
+        <div className="event-detail-meta">
+          {fecha && (
+            <div className="event-detail-meta-item">
+              <span className="event-detail-meta-label">Fecha</span>
+              <span className="event-detail-meta-value">{fecha}</span>
+            </div>
+          )}
+          <div className="event-detail-meta-item">
+            <span className="event-detail-meta-label">Hora</span>
+            <span className="event-detail-meta-value">{event.hora}</span>
+          </div>
+          <div className="event-detail-meta-item">
+            <span className="event-detail-meta-label">Cupo disponible</span>
+            <span className="event-detail-meta-value">{event.cupo_disponible} de {event.capacidad}</span>
+          </div>
+          {event.direccion && (
+            <div className="event-detail-meta-item">
+              <span className="event-detail-meta-label">Lugar</span>
+              <span className="event-detail-meta-value">{event.direccion}</span>
+            </div>
+          )}
+        </div>
+
+        {event.descripcion && (
+          <p className="event-detail-desc">{event.descripcion}</p>
         )}
+
+        <div className="event-detail-buy">
+          {buyError && <div className="alert alert-error">{buyError}</div>}
+
+          <div className="event-detail-buy-row">
+            {event.precio > 0 && (
+              <div className="event-detail-price-wrapper">
+                <p className="event-detail-price">
+                  ${event.precio.toLocaleString('es-AR')}
+                </p>
+                <span className="event-detail-price-label">por entrada</span>
+              </div>
+            )}
+
+            {event.cupo_disponible === 0 ? (
+              <span className="event-detail-soldout">Sin cupo disponible</span>
+            ) : (
+              <button
+                className="btn btn-primary btn-lg"
+                onClick={handlePurchase}
+                disabled={buying}
+              >
+                {buying ? 'Procesando...' : 'Comprar entrada'}
+              </button>
+            )}
+          </div>
+        </div>
       </main>
+      <Footer />
     </div>
   )
 }

@@ -11,19 +11,25 @@ function HomePage() {
   const navigate = useNavigate()
 
   return (
-    <div>
+    <div className="page-wrapper">
       <Navbar />
-      <main style={{ padding: '1rem 2rem' }}>
-        <h1>Eventos disponibles</h1>
+      <main className="page-main">
+        <h1 className="page-title">Eventos disponibles</h1>
+        <p className="page-subtitle">Encontrá tu próxima experiencia y conseguí tus entradas</p>
+
         <EventFilter onFilter={filterByCategoria} />
 
         {loading && <LoadingSpinner />}
-        {error && <p style={{ color: 'red' }}>{error}</p>}
+        {error && <div className="alert alert-error">{error}</div>}
+
         {!loading && !error && events.length === 0 && (
-          <p>No hay eventos disponibles en este momento.</p>
+          <div className="empty-state">
+            <div className="empty-state-icon">🎪</div>
+            <p className="empty-state-text">No hay eventos disponibles en este momento.</p>
+          </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
+        <div className="events-grid">
           {events.map((event) => (
             <EventCard
               key={event.id_events}

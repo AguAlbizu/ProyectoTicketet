@@ -21,7 +21,7 @@ func (d *TicketDAO) CreateTicket(ticket *domain.Ticket) error {
 // GetTicketsByUserID retorna todos los tickets del usuario con el evento precargado.
 func (d *TicketDAO) GetTicketsByUserID(userID uint) ([]domain.Ticket, error) {
 	var tickets []domain.Ticket
-	err := d.db.Preload("Event").Where("user_id = ?", userID).Find(&tickets).Error
+	err := d.db.Preload("Event").Where("id_users = ?", userID).Find(&tickets).Error
 	return tickets, err
 }
 
@@ -35,5 +35,8 @@ func (d *TicketDAO) GetTicketByID(id uint) (*domain.Ticket, error) {
 }
 
 func (d *TicketDAO) UpdateTicket(ticket *domain.Ticket) error {
-	return d.db.Save(ticket).Error
+	return d.db.Exec(
+		"UPDATE tickets SET estado = ? WHERE id_tickets = ?",
+		ticket.Estado, ticket.IDTickets,
+	).Error
 }

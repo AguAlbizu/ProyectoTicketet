@@ -52,6 +52,7 @@ func (s *TicketService) BuyTicket(userID, eventID uint) (*domain.Ticket, error) 
 		IDUsers:     userID,
 		IDEvents:    eventID,
 		Estado:      "activo",
+		Origen:      "compra",
 		FechaCompra: time.Now(),
 	}
 	if err := s.ticketDAO.CreateTicket(ticket); err != nil {
@@ -124,9 +125,10 @@ func (s *TicketService) TransferTicket(ticketID, ownerID uint, targetEmail strin
 	}
 
 	newTicket := &domain.Ticket{
-		IDUsers:  targetUser.IDUsers,
-		IDEvents: ticket.IDEvents,
+		IDUsers:     targetUser.IDUsers,
+		IDEvents:    ticket.IDEvents,
 		Estado:      "activo",
+		Origen:      "transferencia",
 		FechaCompra: time.Now(),
 	}
 	if err := s.ticketDAO.CreateTicket(newTicket); err != nil {

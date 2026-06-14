@@ -1,31 +1,47 @@
-const estadoColor = {
-  activo: 'green',
-  cancelado: 'red',
-  transferido: 'gray',
+const STRIPE_CLASS = {
+  activo:      'ticket-stripe',
+  cancelado:   'ticket-stripe ticket-stripe-cancelado',
+  transferido: 'ticket-stripe ticket-stripe-transferido',
+}
+
+const STATUS_CLASS = {
+  activo:      'ticket-status status-activo',
+  cancelado:   'ticket-status status-cancelado',
+  transferido: 'ticket-status status-transferido',
 }
 
 function TicketCard({ ticket, onCancel, onTransfer }) {
   const fecha = ticket.event?.fecha
-    ? new Date(ticket.event.fecha).toLocaleDateString('es-AR')
+    ? new Date(ticket.event.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
     : ''
 
-  return (
-    <div style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '1rem', marginBottom: '1rem' }}>
-      <h3>{ticket.event?.titulo || `Evento #${ticket.event_id}`}</h3>
-      <p>{fecha} — {ticket.event?.hora}</p>
-      <p>
-        Estado:{' '}
-        <strong style={{ color: estadoColor[ticket.estado] || 'black' }}>
-          {ticket.estado}
-        </strong>
-      </p>
+  const stripeClass = STRIPE_CLASS[ticket.estado] || 'ticket-stripe'
+  const statusClass = STATUS_CLASS[ticket.estado] || 'ticket-status'
 
-      {ticket.estado === 'activo' && (
-        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-          <button onClick={() => onCancel(ticket.id)}>Cancelar</button>
-          <button onClick={() => onTransfer(ticket.id)}>Transferir</button>
+  return (
+    <div className="ticket-card">
+      <div className={stripeClass} />
+      <div className="ticket-content">
+        <h3 className="ticket-title">
+          {ticket.event?.titulo || `Evento #${ticket.id_events}`}
+        </h3>
+        {fecha && (
+          <p className="ticket-meta">{fecha}{ticket.event?.hora ? ` — ${ticket.event.hora}` : ''}</p>
+        )}
+        <div className="ticket-footer">
+          <span className={statusClass}>{ticket.estado}</span>
+          {ticket.estado === 'activo' && (
+            <div className="ticket-actions">
+              <button className="btn btn-danger" onClick={() => onCancel(ticket.id_tickets)}>
+                Cancelar
+              </button>
+              <button className="btn btn-outline" onClick={() => onTransfer(ticket.id_tickets)}>
+                Transferir
+              </button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }

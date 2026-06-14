@@ -35,5 +35,8 @@ func (d *EventDAO) GetEventByID(id uint) (*domain.Event, error) {
 }
 
 func (d *EventDAO) UpdateEvent(event *domain.Event) error {
-	return d.db.Save(event).Error
+	return d.db.Exec(
+		"UPDATE events SET cupo_disponible = ?, estado = ? WHERE id_events = ?",
+		event.CupoDisponible, event.Estado, event.IDEvents,
+	).Error
 }

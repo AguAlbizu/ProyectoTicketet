@@ -27,22 +27,28 @@ function TransferModal({ ticketId, isOpen, onClose, onSuccess }) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'white', padding: '2rem', borderRadius: '8px', minWidth: '320px' }}>
-        <h3>Transferir entrada</h3>
-        <p>Ingresá el email del usuario que recibirá la entrada:</p>
-        <input
-          type="email"
-          value={targetEmail}
-          onChange={(e) => setTargetEmail(e.target.value)}
-          placeholder="email@ejemplo.com"
-          style={{ width: '100%', padding: '0.5rem', marginBottom: '0.5rem' }}
-        />
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} disabled={loading}>Cancelar</button>
-          <button onClick={handleConfirm} disabled={loading}>
-            {loading ? 'Transfiriendo...' : 'Confirmar'}
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h3 className="modal-title">Transferir entrada</h3>
+        <p className="modal-desc">
+          Ingresá el email del usuario que recibirá esta entrada. La operación es irreversible.
+        </p>
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label className="form-label">Email del destinatario</label>
+          <input
+            className="form-input"
+            type="email"
+            value={targetEmail}
+            onChange={(e) => setTargetEmail(e.target.value)}
+            placeholder="email@ejemplo.com"
+            autoFocus
+          />
+        </div>
+        {error && <div className="alert alert-error" style={{ marginTop: '0.75rem', marginBottom: 0 }}>{error}</div>}
+        <div className="modal-actions">
+          <button className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancelar</button>
+          <button className="btn btn-primary" onClick={handleConfirm} disabled={loading}>
+            {loading ? 'Transfiriendo...' : 'Confirmar transferencia'}
           </button>
         </div>
       </div>

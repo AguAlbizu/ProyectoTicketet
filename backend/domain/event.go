@@ -11,7 +11,9 @@ type Event struct {
 	Capacidad      int       `gorm:"not null" json:"capacidad"`
 	CupoDisponible int       `gorm:"not null" json:"cupo_disponible"`
 	Categoria      string    `gorm:"type:varchar(100)" json:"categoria"`
+	Direccion      string    `gorm:"type:varchar(300)" json:"direccion"`
 	ImagenURL      string    `gorm:"type:varchar(500)" json:"imagen_url"`
+	Precio         int       `gorm:"default:0" json:"precio"`
 	Estado         string    `gorm:"type:varchar(20);default:'activo';not null" json:"estado"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`

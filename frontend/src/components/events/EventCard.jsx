@@ -1,28 +1,42 @@
+const CATEGORY_EMOJI = {
+  'Música':    '🎵',
+  'Teatro':    '🎭',
+  'Deportes':  '⚽',
+  'Cine':      '🎬',
+}
+
 function EventCard({ event, onClick }) {
   const fecha = event.fecha
-    ? new Date(event.fecha).toLocaleDateString('es-AR')
+    ? new Date(event.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
     : ''
 
+  const emoji = CATEGORY_EMOJI[event.categoria] || '🎪'
+  const sinCupo = event.cupo_disponible === 0
+
   return (
-    <div
-      onClick={() => onClick(event.id_events)}
-      style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '1rem', cursor: 'pointer' }}
-    >
-      {event.imagen_url && (
-        <img
-          src={event.imagen_url}
-          alt={event.titulo}
-          style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '4px' }}
-        />
-      )}
-      <h3>{event.titulo}</h3>
-      <p>{fecha} — {event.hora}</p>
-      <p><strong>Categoría:</strong> {event.categoria}</p>
-      {event.cupo_disponible === 0 ? (
-        <span style={{ color: 'red', fontWeight: 'bold' }}>Sin cupo</span>
+    <div className="card card-clickable" onClick={() => onClick(event.id_events)}>
+      {event.imagen_url ? (
+        <img className="card-img" src={event.imagen_url} alt={event.titulo} />
       ) : (
-        <span style={{ color: 'green' }}>Cupo disponible: {event.cupo_disponible}</span>
+        <div className="card-img-placeholder">{emoji}</div>
       )}
+      <div className="card-body">
+        <p className="event-card-meta">{fecha} — {event.hora}</p>
+        <h3 className="event-card-title">{event.titulo}</h3>
+        <div className="event-card-footer">
+          <span className="badge badge-category">{event.categoria}</span>
+          {sinCupo ? (
+            <span className="badge badge-soldout">Sin cupo</span>
+          ) : (
+            <span className="badge badge-available">{event.cupo_disponible} disp.</span>
+          )}
+        </div>
+        {event.precio > 0 && (
+          <p className="event-card-price">
+            ${event.precio.toLocaleString('es-AR')}
+          </p>
+        )}
+      </div>
     </div>
   )
 }

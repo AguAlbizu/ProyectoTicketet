@@ -9,6 +9,7 @@ type Ticket struct {
 	IDEvents    uint      `gorm:"not null;index;column:id_events" json:"id_events"`
 	Event       Event     `gorm:"foreignKey:IDEvents;references:IDEvents" json:"event,omitempty"`
 	Estado      string    `gorm:"type:varchar(20);default:'activo';not null" json:"estado"`
+	Origen      string    `gorm:"type:varchar(20);default:'compra';not null" json:"origen"`
 	FechaCompra time.Time `gorm:"not null" json:"fecha_compra"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`

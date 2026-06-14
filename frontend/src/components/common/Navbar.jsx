@@ -11,22 +11,22 @@ function Navbar() {
   }
 
   return (
-    <nav style={{ padding: '1rem', borderBottom: '1px solid #ccc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <Link to="/" style={{ fontWeight: 'bold', fontSize: '1.2rem', textDecoration: 'none' }}>
-        TicketApp
+    <nav className="navbar">
+      <Link to="/">
+        <img src="/logo.png" alt="TicketApp" style={{ height: '58px', display: 'block' }} />
       </Link>
 
-      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+      <div className="navbar-links">
         {isAuthenticated ? (
           <>
-            <span>Hola, {user?.nombre}</span>
-            <Link to="/my-tickets">Mis Entradas</Link>
-            <button onClick={handleLogout}>Cerrar Sesión</button>
+            <span className="navbar-greeting">Hola, {user?.nombre}</span>
+            <Link to="/my-tickets" className="navbar-link">Mis Entradas</Link>
+            <button className="btn btn-ghost" onClick={handleLogout}>Salir</button>
           </>
         ) : (
           <>
-            <Link to="/login">Iniciar Sesión</Link>
-            <Link to="/register">Registrarse</Link>
+            <Link to="/login" className="navbar-link">Iniciar Sesión</Link>
+            <Link to="/register" className="btn btn-primary">Registrarse</Link>
           </>
         )}
       </div>
