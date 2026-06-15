@@ -11,6 +11,7 @@ const TABS = [
   { key: 'compradas',    label: 'Compradas' },
   { key: 'recibidas',    label: 'Recibidas' },
   { key: 'transferidas', label: 'Transferidas' },
+  { key: 'canceladas',   label: 'Canceladas' },
 ]
 
 function MyTicketsPage() {
@@ -53,16 +54,21 @@ function MyTicketsPage() {
   // transferidas: tickets que este usuario transfirió a alguien más
   const transferidas = tickets.filter(t => t.estado === 'transferido')
 
+  // canceladas: tickets cancelados por el usuario
+  const canceladas = tickets.filter(t => t.estado === 'cancelado')
+
   const counts = {
     disponibles:  disponibles.length,
     compradas:    compradas.length,
     recibidas:    recibidas.length,
     transferidas: transferidas.length,
+    canceladas:   canceladas.length,
   }
 
   const currentList = activeTab === 'disponibles'  ? disponibles
     : activeTab === 'compradas'    ? compradas
     : activeTab === 'recibidas'    ? recibidas
+    : activeTab === 'canceladas'   ? canceladas
     : transferidas
 
   const emptyMessages = {
@@ -70,6 +76,7 @@ function MyTicketsPage() {
     compradas:    { icon: '🛒', text: 'Todavía no compraste ninguna entrada.' },
     recibidas:    { icon: '🎁', text: 'No recibiste ninguna entrada por transferencia.' },
     transferidas: { icon: '↗️', text: 'No transferiste ninguna entrada.' },
+    canceladas:   { icon: '❌', text: 'No cancelaste ninguna entrada.' },
   }
 
   return (

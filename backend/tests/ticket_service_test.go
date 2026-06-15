@@ -1,7 +1,7 @@
 package tests
 
 // Objetivo de cobertura para la entrega parcial: >= 40% en servicios y controladores.
-// Correr con: go test ./tests/... -v -cover
+// Correr con: go test ./tests/... -coverpkg=ticketapp/services,ticketapp/utils -v
 
 import (
 	"testing"
@@ -39,6 +39,9 @@ func (m *mockTicketDAO) GetTicketByID(id uint) (*domain.Ticket, error) {
 func (m *mockTicketDAO) UpdateTicket(t *domain.Ticket) error {
 	m.lastSaved = t
 	return m.updateErr
+}
+func (m *mockTicketDAO) GetActiveTicketByUserAndEvent(userID, eventID uint) (*domain.Ticket, error) {
+	return nil, assert.AnError
 }
 
 type mockEventDAOForTicket struct {
@@ -78,7 +81,7 @@ func TestBuyTicket_NoCapacity(t *testing.T) {
 	}
 	svc := services.NewTicketService(&mockTicketDAO{}, eventDAO, &mockUserDAOForTicket{})
 
-	_, err := svc.BuyTicket(1, 1)
+	_, err := svc.BuyTicket(1, 1, false)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no hay cupo disponible")
 }
@@ -119,7 +122,7 @@ func TestBuyTicket_Success(t *testing.T) {
 	}
 	svc := services.NewTicketService(ticketDAO, eventDAO, &mockUserDAOForTicket{})
 
-	ticket, err := svc.BuyTicket(1, 1)
+	ticket, err := svc.BuyTicket(1, 1, false)
 	assert.NoError(t, err)
 	assert.NotNil(t, ticket)
 	assert.Equal(t, 9, eventDAO.lastSaved.CupoDisponible)
@@ -132,7 +135,7 @@ func TestBuyTicket_EventCancelled(t *testing.T) {
 	}
 	svc := services.NewTicketService(&mockTicketDAO{}, eventDAO, &mockUserDAOForTicket{})
 
-	_, err := svc.BuyTicket(1, 1)
+	_, err := svc.BuyTicket(1, 1, false)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "el evento está cancelado")
 }

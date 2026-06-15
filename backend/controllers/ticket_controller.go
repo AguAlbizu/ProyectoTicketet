@@ -18,6 +18,7 @@ func NewTicketController(ticketService *services.TicketService) *TicketControlle
 
 type buyTicketRequest struct {
 	EventID uint `json:"event_id" binding:"required"`
+	Force   bool `json:"force"`
 }
 
 type transferRequest struct {
@@ -34,7 +35,7 @@ func (c *TicketController) BuyTicket(ctx *gin.Context) {
 		return
 	}
 
-	ticket, err := c.ticketService.BuyTicket(userID.(uint), req.EventID)
+	ticket, err := c.ticketService.BuyTicket(userID.(uint), req.EventID, req.Force)
 	if err != nil {
 		status := http.StatusBadRequest
 		if err.Error() == "evento no encontrado" {

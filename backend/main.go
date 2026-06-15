@@ -43,6 +43,10 @@ func main() {
 		log.Fatal("AutoMigrate falló:", err)
 	}
 
+	// Agregar claves foráneas manualmente (idempotente: ignora error si ya existen)
+	db.Exec("ALTER TABLE tickets ADD CONSTRAINT fk_tickets_users FOREIGN KEY (id_users) REFERENCES users(id_users) ON DELETE RESTRICT ON UPDATE CASCADE")
+	db.Exec("ALTER TABLE tickets ADD CONSTRAINT fk_tickets_events FOREIGN KEY (id_events) REFERENCES events(id_events) ON DELETE RESTRICT ON UPDATE CASCADE")
+
 	// Instanciar DAOs
 	userDAO := dao.NewUserDAO(db)
 	eventDAO := dao.NewEventDAO(db)

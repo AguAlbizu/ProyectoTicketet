@@ -12,6 +12,7 @@ type TicketDAOPort interface {
 	GetTicketsByUserID(userID uint) ([]domain.Ticket, error)
 	GetTicketByID(id uint) (*domain.Ticket, error)
 	UpdateTicket(ticket *domain.Ticket) error
+	GetActiveTicketByUserAndEvent(userID, eventID uint) (*domain.Ticket, error)
 }
 
 // EventDAOPort define los métodos de eventos requeridos por TicketService.
@@ -36,7 +37,8 @@ func NewTicketService(ticketDAO TicketDAOPort, eventDAO EventDAOPort, userDAO Us
 }
 
 // BuyTicket verifica cupo, crea el ticket y decrementa CupoDisponible del evento.
-func (s *TicketService) BuyTicket(userID, eventID uint) (*domain.Ticket, error) {
+// Si force=true, permite comprar aunque ya se tenga una entrada activa para el evento.
+func (s *TicketService) BuyTicket(userID, eventID uint, force bool) (*domain.Ticket, error) {
 	event, err := s.eventDAO.GetEventByID(eventID)
 	if err != nil {
 		return nil, fmt.Errorf("evento no encontrado")
@@ -46,6 +48,11 @@ func (s *TicketService) BuyTicket(userID, eventID uint) (*domain.Ticket, error) 
 	}
 	if event.CupoDisponible <= 0 {
 		return nil, fmt.Errorf("no hay cupo disponible para este evento")
+	}
+	if !force {
+		if _, err := s.ticketDAO.GetActiveTicketByUserAndEvent(userID, eventID); err == nil {
+			return nil, fmt.Errorf("ya tenés una entrada activa para este evento")
+		}
 	}
 
 	ticket := &domain.Ticket{

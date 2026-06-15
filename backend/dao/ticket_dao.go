@@ -40,3 +40,12 @@ func (d *TicketDAO) UpdateTicket(ticket *domain.Ticket) error {
 		ticket.Estado, ticket.IDTickets,
 	).Error
 }
+
+func (d *TicketDAO) GetActiveTicketByUserAndEvent(userID, eventID uint) (*domain.Ticket, error) {
+	var ticket domain.Ticket
+	err := d.db.Where("id_users = ? AND id_events = ? AND estado = 'activo'", userID, eventID).First(&ticket).Error
+	if err != nil {
+		return nil, err
+	}
+	return &ticket, nil
+}

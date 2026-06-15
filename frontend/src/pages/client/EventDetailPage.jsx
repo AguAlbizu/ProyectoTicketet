@@ -17,6 +17,7 @@ function EventDetailPage() {
   const [error, setError] = useState('')
   const [buying, setBuying] = useState(false)
   const [buyError, setBuyError] = useState('')
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false)
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -38,9 +39,28 @@ function EventDetailPage() {
       return
     }
     setBuyError('')
+    setShowDuplicateWarning(false)
     setBuying(true)
     try {
       await buyTicket(Number(id))
+      navigate('/purchase-success')
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Error al comprar la entrada'
+      if (msg === 'ya tenés una entrada activa para este evento') {
+        setShowDuplicateWarning(true)
+      } else {
+        setBuyError(msg)
+      }
+    } finally {
+      setBuying(false)
+    }
+  }
+
+  const handleForceConfirm = async () => {
+    setShowDuplicateWarning(false)
+    setBuying(true)
+    try {
+      await buyTicket(Number(id), true)
       navigate('/purchase-success')
     } catch (err) {
       setBuyError(err.response?.data?.error || 'Error al comprar la entrada')
@@ -108,6 +128,22 @@ function EventDetailPage() {
         <div className="event-detail-buy">
           {buyError && <div className="alert alert-error">{buyError}</div>}
 
+          {showDuplicateWarning && (
+            <div className="duplicate-warning">
+              <p className="duplicate-warning-text">
+                Ya tenés una entrada activa para este evento. ¿Querés comprar otra igualmente?
+              </p>
+              <div className="duplicate-warning-actions">
+                <button className="btn btn-outline" onClick={() => setShowDuplicateWarning(false)}>
+                  Cancelar
+                </button>
+                <button className="btn btn-primary" onClick={handleForceConfirm} disabled={buying}>
+                  {buying ? 'Procesando...' : 'Comprar de todas formas'}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="event-detail-buy-row">
             {event.precio > 0 && (
               <div className="event-detail-price-wrapper">
@@ -121,13 +157,15 @@ function EventDetailPage() {
             {event.cupo_disponible === 0 ? (
               <span className="event-detail-soldout">Sin cupo disponible</span>
             ) : (
-              <button
-                className="btn btn-primary btn-lg"
-                onClick={handlePurchase}
-                disabled={buying}
-              >
-                {buying ? 'Procesando...' : 'Comprar entrada'}
-              </button>
+              !showDuplicateWarning && (
+                <button
+                  className="btn btn-primary btn-lg"
+                  onClick={handlePurchase}
+                  disabled={buying}
+                >
+                  {buying ? 'Procesando...' : 'Comprar entrada'}
+                </button>
+              )
             )}
           </div>
         </div>

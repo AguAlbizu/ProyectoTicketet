@@ -1,7 +1,7 @@
 import api from './axiosConfig'
 
-export const buyTicket = (eventId) =>
-  api.post('/tickets', { event_id: eventId })
+export const buyTicket = (eventId, force = false) =>
+  api.post('/tickets', { event_id: eventId, force })
 
 export const getMyTickets = () =>
   api.get('/tickets/my-tickets')

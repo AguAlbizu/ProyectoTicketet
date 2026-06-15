@@ -1,7 +1,7 @@
 package tests
 
 // Objetivo de cobertura para la entrega parcial: >= 40% en servicios y controladores.
-// Correr con: go test ./tests/... -v -cover
+// Correr con: go test ./tests/... -coverpkg=ticketapp/services,ticketapp/utils -v
 
 import (
 	"testing"
