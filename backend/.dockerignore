@@ -1,0 +1,9 @@
+.git
+.env
+.env.example
+ticketapp
+*.exe
+*.out
+tmp/
+tests/
+Makefile

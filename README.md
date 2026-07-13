@@ -97,6 +97,62 @@ go test ./tests/... -v -cover
 
 ---
 
+## Levantar todo con Docker
+
+Alternativa a la instalación manual: levanta MySQL, backend y frontend con un solo comando. Requiere tener **Docker** y **Docker Compose** instalados.
+
+### 1. Configurar variables de entorno
+
+```bash
+cp .env.example .env
+```
+
+Editar `.env` (en la raíz del proyecto) con tus valores reales:
+
+```
+DB_PASSWORD=tu_password
+DB_NAME=ticketapp
+JWT_SECRET=un_secreto_seguro
+JWT_EXPIRATION_HOURS=24
+VITE_API_BASE_URL=http://localhost:8080/api
+```
+
+Este `.env` de la raíz es independiente de `backend/.env` y `frontend/.env` (esos son para correr el proyecto sin Docker).
+
+### 2. Levantar los servicios
+
+```bash
+docker compose up --build
+```
+
+Esto levanta:
+
+| Servicio  | Descripción                                              | Puerto host |
+|-----------|-----------------------------------------------------------|-------------|
+| `mysql`   | MySQL 8, con volumen persistente y carga automática de `database/seed.sql` en el primer arranque | `3307` (mapeado a 3306 interno, para no chocar con un MySQL local) |
+| `backend` | API Go/Gin, espera a que MySQL esté healthy antes de iniciar | `8080`      |
+| `frontend`| Build de React servido con nginx                          | `5173`      |
+
+El frontend queda disponible en `http://localhost:5173` y la API en `http://localhost:8080`.
+
+### 3. Apagar los servicios
+
+```bash
+docker compose down
+```
+
+Para borrar también los datos de MySQL (empezar de cero):
+
+```bash
+docker compose down -v
+```
+
+> **Nota:** `VITE_API_BASE_URL` se incrusta en el bundle de React durante el build (Vite no lee variables de entorno en runtime), así que si la cambiás hace falta reconstruir la imagen del frontend: `docker compose up --build frontend`.
+
+> El flujo de desarrollo local sin Docker (`go run main.go` / `npm run dev`) sigue funcionando igual que antes, usando `backend/.env` y `frontend/.env`.
+
+---
+
 ## Endpoints disponibles (Entrega Parcial)
 
 | Método   | Ruta                        | Auth | Descripción                        |
