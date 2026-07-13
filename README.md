@@ -1,6 +1,6 @@
 # TicketApp — Sistema de Gestión de Entradas
 
-Sistema web de compra y gestión de entradas para eventos. Permite a los usuarios explorar el catálogo de eventos disponibles, comprar entradas, cancelarlas y transferirlas a otros usuarios registrados. Desarrollado como proyecto universitario para la materia **Desarrollo de Software — UCC 2026**.
+Sistema web de compra y gestión de entradas para eventos. Permite a los usuarios explorar el catálogo de eventos disponibles, comprar entradas, cancelarlas y transferirlas a otros usuarios registrados. Los administradores pueden gestionar el catálogo completo de eventos y ver reportes de ocupación. Desarrollado como proyecto universitario para la materia **Desarrollo de Software — UCC 2026**.
 
 ---
 
@@ -10,6 +10,7 @@ Sistema web de compra y gestión de entradas para eventos. Permite a los usuario
 - [Tecnologías Utilizadas](#tecnologías-utilizadas)
 - [Requisitos Previos](#requisitos-previos)
 - [Instalación y Uso](#instalación-y-uso)
+- [Primer Administrador](#primer-administrador)
 - [Comandos de Tests](#comandos-de-tests)
 - [Endpoints de la API](#endpoints-de-la-api)
 - [Diagrama de Base de Datos](#diagrama-de-base-de-datos)
@@ -27,6 +28,9 @@ Sistema web de compra y gestión de entradas para eventos. Permite a los usuario
 
 ### Mis Entradas
 ![Mis Entradas](docs/screenshots/mis-entradas.png)
+
+### Panel de Administración
+![Panel Admin](docs/screenshots/panel-admin.png)
 
 ### Login
 ![Login](docs/screenshots/login.png)
@@ -85,6 +89,12 @@ CREATE DATABASE ticketapp CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 EXIT;
 ```
 
+Opcionalmente, cargar datos de ejemplo:
+
+```bash
+mysql -uroot -p ticketapp < database/seed.sql
+```
+
 ### 3. Configurar el backend
 
 ```bash
@@ -136,6 +146,26 @@ El frontend queda disponible en `http://localhost:5173`.
 
 ---
 
+## Primer Administrador
+
+El sistema no incluye un administrador por defecto. Para crear el primero, ejecutar el siguiente SQL **una sola vez** contra la base de datos (contraseña: `admin123`):
+
+```sql
+INSERT INTO users (nombre, email, password, rol, created_at, updated_at)
+VALUES (
+  'Admin',
+  'admin@ticketapp.com',
+  '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9',
+  'administrador',
+  NOW(),
+  NOW()
+);
+```
+
+Luego iniciar sesión con `admin@ticketapp.com` / `admin123`. A partir de ahí, desde el **Panel Admin → Crear Admin** se pueden crear nuevos administradores o promover usuarios existentes sin necesidad de tocar la base de datos.
+
+---
+
 ## Comandos de Tests
 
 Todos los comandos se ejecutan desde la carpeta `backend/`.
@@ -159,11 +189,6 @@ go test ./tests/... -v
 go test ./tests/... -coverpkg=ticketapp/services,ticketapp/utils,ticketapp/controllers -cover
 ```
 
-**Ver cobertura completa con detalle:**
-```bash
-go test ./tests/... -coverpkg=ticketapp/services,ticketapp/utils,ticketapp/controllers -v
-```
-
 **Ver cobertura función por función:**
 ```bash
 go test ./tests/... -coverpkg=ticketapp/services,ticketapp/utils,ticketapp/controllers -coverprofile=coverage.out
@@ -176,22 +201,39 @@ make test      # todos los tests con detalle
 make coverage  # cobertura función por función
 ```
 
-Cobertura actual: **75.7%** sobre servicios, utils y controladores (39 tests).
-
 ---
 
 ## Endpoints de la API
 
-| Método | Ruta | Auth | Descripción |
-|--------|------|------|-------------|
-| POST | `/api/auth/register` | No | Registrar nuevo usuario |
-| POST | `/api/auth/login` | No | Iniciar sesión, retorna JWT |
-| GET | `/api/events` | No | Listar eventos activos (filtro por `?categoria=`) |
-| GET | `/api/events/:id` | No | Detalle de un evento |
-| POST | `/api/tickets` | JWT | Comprar entrada para un evento |
-| GET | `/api/tickets/my-tickets` | JWT | Ver mis entradas |
-| DELETE | `/api/tickets/:id` | JWT | Cancelar una entrada propia |
-| PUT | `/api/tickets/:id/transfer` | JWT | Transferir entrada a otro usuario |
+### Públicos (sin autenticación)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/auth/register` | Registrar nuevo usuario |
+| POST | `/api/auth/login` | Iniciar sesión, retorna JWT |
+| GET | `/api/events` | Listar eventos activos (filtro por `?categoria=`) |
+| GET | `/api/events/:id` | Detalle de un evento |
+
+### Cliente (requiere JWT)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/tickets` | Comprar entrada para un evento |
+| GET | `/api/tickets/my-tickets` | Ver mis entradas |
+| DELETE | `/api/tickets/:id` | Cancelar una entrada propia |
+| PUT | `/api/tickets/:id/transfer` | Transferir entrada a otro usuario |
+
+### Administrador (requiere JWT con rol `administrador`)
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| GET | `/api/admin/events` | Listar todos los eventos (activos y cancelados) |
+| POST | `/api/admin/events` | Crear nuevo evento |
+| PUT | `/api/admin/events/:id` | Editar evento (incluye cambio de estado) |
+| DELETE | `/api/admin/events/:id` | Cancelar evento y sus entradas activas |
+| GET | `/api/admin/events/:id/report` | Reporte de ocupación y compradores |
+| POST | `/api/admin/users` | Crear nuevo usuario administrador |
+| PUT | `/api/admin/users/promote` | Promover usuario existente a administrador |
 
 ---
 
@@ -257,12 +299,16 @@ Se optó por separar claramente las responsabilidades en cuatro capas. El `domai
 
 ### 2. Raw SQL para operaciones de actualización en lugar de GORM Save
 
-Al usar `db.Save()` de GORM para actualizar registros, el ORM sobreescribe todos los campos incluyendo `created_at`, lo que generaba errores con el modo estricto de MySQL (fechas cero `0000-00-00`). Se optó por `db.Exec()` con SQL explícito en `UpdateEvent` y `UpdateTicket`, actualizando únicamente los campos necesarios. Esto evita el problema de las fechas y hace las actualizaciones más eficientes.
+Al usar `db.Save()` de GORM para actualizar registros, el ORM sobreescribe todos los campos incluyendo `created_at`, lo que generaba errores con el modo estricto de MySQL (fechas cero `0000-00-00`). Se optó por `db.Exec()` con SQL explícito en los métodos de actualización, actualizando únicamente los campos necesarios. Esto evita el problema de las fechas y hace las actualizaciones más eficientes.
 
 ### 3. Campo `origen` en tickets para distinguir compras de transferencias
 
-En lugar de mantener una tabla separada para transferencias, se agregó el campo `origen` (`compra` / `transferencia`) al modelo `Ticket`. Cuando un usuario transfiere una entrada, el ticket original pasa a estado `transferido` y se crea un nuevo ticket para el destinatario con `origen = transferencia`. Esto simplifica el modelo de datos y permite a la vista "Mis Entradas" separar los tickets en cuatro categorías: disponibles, compradas, recibidas y canceladas.
+En lugar de mantener una tabla separada para transferencias, se agregó el campo `origen` (`compra` / `transferencia`) al modelo `Ticket`. Cuando un usuario transfiere una entrada, el ticket original pasa a estado `transferido` y se crea un nuevo ticket para el destinatario con `origen = transferencia`. Esto simplifica el modelo de datos y permite a la vista "Mis Entradas" separar los tickets en categorías: disponibles, compradas, recibidas y canceladas.
 
-### 4. JWT stateless con claims embebidos
+### 4. JWT stateless con claims de rol embebidos
 
-El token JWT incluye `user_id`, `role` y `email` directamente en el payload. Esto evita una consulta a la base de datos en cada request protegido — el middleware solo valida la firma y extrae los claims. La expiración se configura mediante variable de entorno (`JWT_EXPIRATION_HOURS`), con un valor por defecto de 24 horas.
+El token JWT incluye `user_id`, `role` y `email` directamente en el payload. Esto evita una consulta a la base de datos en cada request protegido — el middleware solo valida la firma y extrae los claims. La autorización por rol se implementa con un middleware separado `RequireRole()` encadenado al de autenticación, lo que permite proteger grupos de rutas de forma declarativa en el router sin lógica de permisos dispersa en los controladores.
+
+### 5. Cancelación en cascada al cancelar un evento
+
+Cuando un administrador cancela un evento, el sistema cancela automáticamente todas las entradas activas asociadas antes de marcar el evento como cancelado. Si el evento se reactiva posteriormente mediante edición, el cupo se restablece a la capacidad completa (ya que todos los tickets fueron cancelados), permitiendo que nuevos compradores adquieran entradas sin inconsistencias en el stock disponible.

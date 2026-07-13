@@ -21,6 +21,9 @@ function Navbar() {
           <>
             <span className="navbar-greeting">Hola, {user?.nombre}</span>
             <Link to="/my-tickets" className="navbar-link">Mis Entradas</Link>
+            {user?.rol === 'administrador' && (
+              <Link to="/admin/events" className="navbar-link">Panel Admin</Link>
+            )}
             <button className="btn btn-ghost" onClick={handleLogout}>Salir</button>
           </>
         ) : (

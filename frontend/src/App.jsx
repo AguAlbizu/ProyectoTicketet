@@ -6,9 +6,8 @@ import HomePage from './pages/client/HomePage'
 import EventDetailPage from './pages/client/EventDetailPage'
 import MyTicketsPage from './pages/client/MyTicketsPage'
 import PurchaseSuccessPage from './pages/client/PurchaseSuccessPage'
+import AdminEventsPage from './pages/admin/AdminEventsPage'
 import ProtectedRoute from './components/common/ProtectedRoute'
-
-// TODO (entrega final): agregar rutas protegidas por rol de administrador
 
 function App() {
   return (
@@ -23,6 +22,11 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route path="/my-tickets" element={<MyTicketsPage />} />
         <Route path="/purchase-success" element={<PurchaseSuccessPage />} />
+      </Route>
+
+      {/* Rutas de administrador — requieren rol administrador */}
+      <Route element={<ProtectedRoute requiredRole="administrador" />}>
+        <Route path="/admin/events" element={<AdminEventsPage />} />
       </Route>
     </Routes>
   )

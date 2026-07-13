@@ -9,8 +9,7 @@ import (
 )
 
 // AuthMiddleware valida el JWT del header Authorization: Bearer <token>.
-// Si es válido, inyecta userID y email en el contexto de Gin.
-// TODO (entrega final): extender para validar rol según la ruta.
+// Si es válido, inyecta userID, email y role en el contexto de Gin.
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -33,6 +32,20 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		c.Set("userID", claims.UserID)
 		c.Set("email", claims.Email)
+		c.Set("role", claims.Role)
+		c.Next()
+	}
+}
+
+// RequireRole devuelve un middleware que verifica que el usuario autenticado
+// tenga el rol especificado. Debe usarse después de AuthMiddleware.
+func RequireRole(role string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userRole, exists := c.Get("role")
+		if !exists || userRole.(string) != role {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Acceso denegado: permisos insuficientes"})
+			return
+		}
 		c.Next()
 	}
 }

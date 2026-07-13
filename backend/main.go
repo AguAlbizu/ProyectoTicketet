@@ -56,11 +56,13 @@ func main() {
 	authService := services.NewAuthService(userDAO)
 	eventService := services.NewEventService(eventDAO)
 	ticketService := services.NewTicketService(ticketDAO, eventDAO, userDAO)
+	adminEventService := services.NewAdminEventService(eventDAO, ticketDAO)
 
 	// Instanciar controllers
 	authController := controllers.NewAuthController(authService)
 	eventController := controllers.NewEventController(eventService)
 	ticketController := controllers.NewTicketController(ticketService)
+	adminController := controllers.NewAdminController(adminEventService, authService)
 
 	r := gin.Default()
 
@@ -95,7 +97,16 @@ func main() {
 	protected.DELETE("/tickets/:id", ticketController.CancelTicket)
 	protected.PUT("/tickets/:id/transfer", ticketController.TransferTicket)
 
-	// TODO (entrega final): agregar rutas de administrador con middleware de rol
+	// Rutas de administrador — requieren JWT válido + rol administrador
+	admin := api.Group("/admin")
+	admin.Use(middleware.AuthMiddleware(), middleware.RequireRole("administrador"))
+	admin.GET("/events", adminController.GetAllEvents)
+	admin.POST("/events", adminController.CreateEvent)
+	admin.PUT("/events/:id", adminController.UpdateEvent)
+	admin.DELETE("/events/:id", adminController.CancelEvent)
+	admin.GET("/events/:id/report", adminController.GetEventReport)
+	admin.POST("/users", adminController.CreateAdmin)
+	admin.PUT("/users/promote", adminController.PromoteToAdmin)
 
 	port := os.Getenv("PORT")
 	if port == "" {

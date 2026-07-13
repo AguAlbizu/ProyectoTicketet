@@ -13,6 +13,7 @@ type AuthUserDAO interface {
 	CreateUser(user *domain.User) error
 	GetUserByEmail(email string) (*domain.User, error)
 	GetUserByID(id uint) (*domain.User, error)
+	UpdateUserRole(email, role string) error
 }
 
 type AuthService struct {
@@ -64,4 +65,36 @@ func (s *AuthService) Login(email, password string) (string, error) {
 // GetUserByEmail expone la búsqueda de usuario para el controller de login.
 func (s *AuthService) GetUserByEmail(email string) (*domain.User, error) {
 	return s.userDAO.GetUserByEmail(email)
+}
+
+// PromoteToAdmin cambia el rol de un usuario existente a "administrador".
+func (s *AuthService) PromoteToAdmin(email string) error {
+	user, err := s.userDAO.GetUserByEmail(email)
+	if err != nil {
+		return fmt.Errorf("usuario no encontrado")
+	}
+	if user.Rol == "administrador" {
+		return fmt.Errorf("el usuario ya es administrador")
+	}
+	return s.userDAO.UpdateUserRole(email, "administrador")
+}
+
+// RegisterAdmin crea un usuario con rol "administrador".
+// Solo debe llamarse desde endpoints protegidos por middleware de admin.
+func (s *AuthService) RegisterAdmin(nombre, email, password string) error {
+	_, err := s.userDAO.GetUserByEmail(email)
+	if err == nil {
+		return fmt.Errorf("el email ya está registrado")
+	}
+	if err != gorm.ErrRecordNotFound {
+		return fmt.Errorf("error al verificar email: %w", err)
+	}
+
+	user := &domain.User{
+		Nombre:   nombre,
+		Email:    email,
+		Password: utils.HashPassword(password),
+		Rol:      "administrador",
+	}
+	return s.userDAO.CreateUser(user)
 }
