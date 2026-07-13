@@ -35,3 +35,7 @@ func (d *UserDAO) GetUserByID(id uint) (*domain.User, error) {
 	}
 	return &user, nil
 }
+
+func (d *UserDAO) UpdateUserRole(email, role string) error {
+	return d.db.Exec("UPDATE users SET rol = ? WHERE email = ?", role, email).Error
+}

@@ -49,3 +49,16 @@ func (d *TicketDAO) GetActiveTicketByUserAndEvent(userID, eventID uint) (*domain
 	}
 	return &ticket, nil
 }
+
+func (d *TicketDAO) GetTicketsByEventID(eventID uint) ([]domain.Ticket, error) {
+	var tickets []domain.Ticket
+	err := d.db.Preload("User").Where("id_events = ? AND estado = 'activo'", eventID).Find(&tickets).Error
+	return tickets, err
+}
+
+func (d *TicketDAO) CancelAllTicketsByEventID(eventID uint) error {
+	return d.db.Exec(
+		"UPDATE tickets SET estado = 'cancelado' WHERE id_events = ? AND estado = 'activo'",
+		eventID,
+	).Error
+}
