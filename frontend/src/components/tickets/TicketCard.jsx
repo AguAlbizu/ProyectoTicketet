@@ -1,3 +1,5 @@
+import SorteoPanel from '../sorteos/SorteoPanel'
+
 const STRIPE_CLASS = {
   activo:      'ticket-stripe',
   cancelado:   'ticket-stripe ticket-stripe-cancelado',
@@ -41,6 +43,9 @@ function TicketCard({ ticket, onCancel, onTransfer }) {
             </div>
           )}
         </div>
+        {ticket.estado === 'activo' && (
+          <SorteoPanel eventId={ticket.id_events} compact />
+        )}
       </div>
     </div>
   )

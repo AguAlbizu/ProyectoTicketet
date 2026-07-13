@@ -12,6 +12,7 @@ Sistema web de compra y gestión de entradas para eventos. Permite a los usuario
 - [Instalación y Uso](#instalación-y-uso)
 - [Comandos de Tests](#comandos-de-tests)
 - [Endpoints de la API](#endpoints-de-la-api)
+- [Bonus Track — Sorteo por evento](#bonus-track--sorteo-por-evento)
 - [Diagrama de Base de Datos](#diagrama-de-base-de-datos)
 - [Decisiones de Diseño](#decisiones-de-diseño)
 
@@ -176,7 +177,7 @@ make test      # todos los tests con detalle
 make coverage  # cobertura función por función
 ```
 
-Cobertura actual: **75.7%** sobre servicios, utils y controladores (39 tests).
+Cobertura actual: **75.8%** sobre servicios, utils y controladores (65 tests).
 
 ---
 
@@ -192,6 +193,40 @@ Cobertura actual: **75.7%** sobre servicios, utils y controladores (39 tests).
 | GET | `/api/tickets/my-tickets` | JWT | Ver mis entradas |
 | DELETE | `/api/tickets/:id` | JWT | Cancelar una entrada propia |
 | PUT | `/api/tickets/:id/transfer` | JWT | Transferir entrada a otro usuario |
+
+---
+
+## Bonus Track — Sorteo por evento
+
+Cada evento puede tener un **sorteo** opcional asociado (nombre + valor por chance). Cualquier
+cliente que tenga una entrada activa para ese evento puede comprar una o más **chances** (a más
+chances, más probabilidades de ganar), tanto desde el detalle del evento como desde "Mis
+Entradas". Un administrador ejecuta el sorteo desde su panel: se elige un ganador al azar entre
+todas las chances cargadas y se notifica por email a **todos** los participantes — al ganador con
+un mensaje de felicitación, y al resto avisando el resultado.
+
+**Backend:** `domain/sorteo.go`, `domain/chance.go`, `dao/sorteo_dao.go`, `dao/chance_dao.go`,
+`services/sorteo_service.go`, `controllers/sorteo_controller.go`.
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/api/events/:id/sorteo` | No | Obtener el sorteo de un evento (si tiene uno cargado) |
+| POST | `/api/sorteos/:id/chances` | JWT | Comprar `cantidad` chances (requiere entrada activa para el evento) |
+| GET | `/api/sorteos/:id/my-chances` | JWT | Cantidad de chances propias en un sorteo |
+| POST | `/api/admin/events/:id/sorteo` | JWT (admin) | Crear el sorteo de un evento |
+| GET | `/api/admin/sorteos` | JWT (admin) | Listar sorteos con su evento, para el panel admin |
+| POST | `/api/admin/sorteos/:id/draw` | JWT (admin) | Ejecutar el sorteo y notificar por email |
+
+Las rutas `/api/admin/*` usan el nuevo middleware `middleware.AdminOnly()`, que se apoya en el
+campo `role` que `AuthMiddleware` inyecta en el contexto a partir del JWT.
+
+**Frontend:** `api/sorteosApi.js`, `components/sorteos/SorteoPanel.jsx` (se muestra tanto en el
+detalle del evento como en cada ticket activo de "Mis Entradas").
+
+**Notificación por email:** usa el `EmailClient` (interfaz en `clients/email_client.go`). Si no
+hay `EMAIL_API_URL` configurado, el sistema usa `NoOpEmailClient` automáticamente y el sorteo
+funciona igual, solo que sin enviar los correos (pensado para desarrollo local sin proveedor de
+email configurado).
 
 ---
 

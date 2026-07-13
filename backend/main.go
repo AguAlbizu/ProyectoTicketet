@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"ticketapp/clients"
 	"ticketapp/controllers"
 	"ticketapp/dao"
 	"ticketapp/domain"
@@ -39,28 +40,45 @@ func main() {
 	}
 
 	// AutoMigrate crea/actualiza las tablas automáticamente
-	if err := db.AutoMigrate(&domain.User{}, &domain.Event{}, &domain.Ticket{}); err != nil {
+	if err := db.AutoMigrate(&domain.User{}, &domain.Event{}, &domain.Ticket{}, &domain.Sorteo{}, &domain.Chance{}); err != nil {
 		log.Fatal("AutoMigrate falló:", err)
 	}
 
 	// Agregar claves foráneas manualmente (idempotente: ignora error si ya existen)
 	db.Exec("ALTER TABLE tickets ADD CONSTRAINT fk_tickets_users FOREIGN KEY (id_users) REFERENCES users(id_users) ON DELETE RESTRICT ON UPDATE CASCADE")
 	db.Exec("ALTER TABLE tickets ADD CONSTRAINT fk_tickets_events FOREIGN KEY (id_events) REFERENCES events(id_events) ON DELETE RESTRICT ON UPDATE CASCADE")
+	db.Exec("ALTER TABLE sorteos ADD CONSTRAINT fk_sorteos_events FOREIGN KEY (id_events) REFERENCES events(id_events) ON DELETE CASCADE ON UPDATE CASCADE")
+	db.Exec("ALTER TABLE sorteos ADD CONSTRAINT fk_sorteos_ganador FOREIGN KEY (id_ganador) REFERENCES users(id_users) ON DELETE SET NULL ON UPDATE CASCADE")
+	db.Exec("ALTER TABLE chances ADD CONSTRAINT fk_chances_sorteos FOREIGN KEY (id_sorteo) REFERENCES sorteos(id_sorteo) ON DELETE CASCADE ON UPDATE CASCADE")
+	db.Exec("ALTER TABLE chances ADD CONSTRAINT fk_chances_users FOREIGN KEY (id_users) REFERENCES users(id_users) ON DELETE RESTRICT ON UPDATE CASCADE")
 
 	// Instanciar DAOs
 	userDAO := dao.NewUserDAO(db)
 	eventDAO := dao.NewEventDAO(db)
 	ticketDAO := dao.NewTicketDAO(db)
+	sorteoDAO := dao.NewSorteoDAO(db)
+	chanceDAO := dao.NewChanceDAO(db)
+
+	// Cliente de email: usa la API HTTP configurada, o un no-op si no hay EMAIL_API_URL (desarrollo local).
+	var emailClient clients.EmailClient
+	if os.Getenv("EMAIL_API_URL") != "" {
+		emailClient = clients.NewEmailClient()
+	} else {
+		emailClient = &clients.NoOpEmailClient{}
+		log.Println("EMAIL_API_URL no configurado: los emails de sorteo se omiten (NoOpEmailClient)")
+	}
 
 	// Instanciar services
 	authService := services.NewAuthService(userDAO)
 	eventService := services.NewEventService(eventDAO)
 	ticketService := services.NewTicketService(ticketDAO, eventDAO, userDAO)
+	sorteoService := services.NewSorteoService(sorteoDAO, chanceDAO, eventDAO, ticketDAO, userDAO, emailClient)
 
 	// Instanciar controllers
 	authController := controllers.NewAuthController(authService)
 	eventController := controllers.NewEventController(eventService)
 	ticketController := controllers.NewTicketController(ticketService)
+	sorteoController := controllers.NewSorteoController(sorteoService)
 
 	r := gin.Default()
 
@@ -86,6 +104,7 @@ func main() {
 	api.POST("/auth/login", authController.Login)
 	api.GET("/events", eventController.GetEvents)
 	api.GET("/events/:id", eventController.GetEventByID)
+	api.GET("/events/:id/sorteo", sorteoController.GetSorteoByEvent)
 
 	// Rutas protegidas — requieren JWT válido
 	protected := api.Group("")
@@ -94,8 +113,17 @@ func main() {
 	protected.GET("/tickets/my-tickets", ticketController.GetMyTickets)
 	protected.DELETE("/tickets/:id", ticketController.CancelTicket)
 	protected.PUT("/tickets/:id/transfer", ticketController.TransferTicket)
+	protected.POST("/sorteos/:id/chances", sorteoController.BuyChances)
+	protected.GET("/sorteos/:id/my-chances", sorteoController.GetMyChances)
 
-	// TODO (entrega final): agregar rutas de administrador con middleware de rol
+	// Rutas de administrador — requieren JWT válido + rol "admin"
+	admin := api.Group("/admin")
+	admin.Use(middleware.AuthMiddleware(), middleware.AdminOnly())
+	admin.POST("/events/:id/sorteo", sorteoController.CreateSorteo)
+	admin.GET("/sorteos", sorteoController.ListSorteosAdmin)
+	admin.POST("/sorteos/:id/draw", sorteoController.RunDraw)
+
+	// TODO (entrega final): agregar el resto de rutas de administrador (CRUD de eventos, reportes)
 
 	port := os.Getenv("PORT")
 	if port == "" {
