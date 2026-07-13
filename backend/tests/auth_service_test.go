@@ -16,9 +16,11 @@ import (
 
 // mockAuthUserDAO implementa services.AuthUserDAO para tests sin base de datos.
 type mockAuthUserDAO struct {
-	user      *domain.User
-	createErr error
-	findErr   error
+	user       *domain.User
+	createErr  error
+	findErr    error
+	updateErr  error
+	lastRole   string
 }
 
 func (m *mockAuthUserDAO) CreateUser(user *domain.User) error { return m.createErr }
@@ -29,6 +31,10 @@ func (m *mockAuthUserDAO) GetUserByEmail(email string) (*domain.User, error) {
 	return m.user, nil
 }
 func (m *mockAuthUserDAO) GetUserByID(id uint) (*domain.User, error) { return m.user, nil }
+func (m *mockAuthUserDAO) UpdateUserRole(email, role string) error {
+	m.lastRole = role
+	return m.updateErr
+}
 
 // TestHashPassword_ReturnsHash verifica que HashPassword retorna un hash no vacío de 64 chars (SHA-256 hex).
 func TestHashPassword_ReturnsHash(t *testing.T) {

@@ -31,7 +31,7 @@ func setupSorteoTestRouter(sorteoDAO *mockSorteoDAO, chanceDAO *mockChanceDAO, e
 	protected.GET("/sorteos/:id/my-chances", ctrl.GetMyChances)
 
 	admin := r.Group("/api/admin")
-	admin.Use(middleware.AuthMiddleware(), middleware.AdminOnly())
+	admin.Use(middleware.AuthMiddleware(), middleware.RequireRole("administrador"))
 	admin.POST("/events/:id/sorteo", ctrl.CreateSorteo)
 	admin.GET("/sorteos", ctrl.ListSorteosAdmin)
 	admin.POST("/sorteos/:id/draw", ctrl.RunDraw)
@@ -41,7 +41,7 @@ func setupSorteoTestRouter(sorteoDAO *mockSorteoDAO, chanceDAO *mockChanceDAO, e
 
 func adminToken(t *testing.T) string {
 	os.Setenv("JWT_SECRET", "test-secret-controllers")
-	token, err := utils.GenerateToken(1, "admin", "admin@test.com")
+	token, err := utils.GenerateToken(1, "administrador", "admin@test.com")
 	assert.NoError(t, err)
 	return token
 }

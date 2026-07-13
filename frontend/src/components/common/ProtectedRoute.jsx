@@ -3,12 +3,13 @@ import { useAuth } from '../../hooks/useAuth'
 import LoadingSpinner from './LoadingSpinner'
 
 // Redirige a /login si no hay token.
-// TODO (entrega final): agregar validación de rol como prop
-function ProtectedRoute() {
-  const { token, loading } = useAuth()
+// Si se pasa requiredRole, redirige a / si el usuario no tiene ese rol.
+function ProtectedRoute({ requiredRole }) {
+  const { user, token, loading } = useAuth()
 
   if (loading) return <LoadingSpinner />
   if (!token) return <Navigate to="/login" replace />
+  if (requiredRole && user?.rol !== requiredRole) return <Navigate to="/" replace />
 
   return <Outlet />
 }

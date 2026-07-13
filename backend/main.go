@@ -73,12 +73,14 @@ func main() {
 	eventService := services.NewEventService(eventDAO)
 	ticketService := services.NewTicketService(ticketDAO, eventDAO, userDAO)
 	sorteoService := services.NewSorteoService(sorteoDAO, chanceDAO, eventDAO, ticketDAO, userDAO, emailClient)
+	adminEventService := services.NewAdminEventService(eventDAO, ticketDAO)
 
 	// Instanciar controllers
 	authController := controllers.NewAuthController(authService)
 	eventController := controllers.NewEventController(eventService)
 	ticketController := controllers.NewTicketController(ticketService)
 	sorteoController := controllers.NewSorteoController(sorteoService)
+	adminController := controllers.NewAdminController(adminEventService, authService)
 
 	r := gin.Default()
 
@@ -116,14 +118,19 @@ func main() {
 	protected.POST("/sorteos/:id/chances", sorteoController.BuyChances)
 	protected.GET("/sorteos/:id/my-chances", sorteoController.GetMyChances)
 
-	// Rutas de administrador — requieren JWT válido + rol "admin"
+	// Rutas de administrador — requieren JWT válido + rol administrador
 	admin := api.Group("/admin")
-	admin.Use(middleware.AuthMiddleware(), middleware.AdminOnly())
+	admin.Use(middleware.AuthMiddleware(), middleware.RequireRole("administrador"))
+	admin.GET("/events", adminController.GetAllEvents)
+	admin.POST("/events", adminController.CreateEvent)
+	admin.PUT("/events/:id", adminController.UpdateEvent)
+	admin.DELETE("/events/:id", adminController.CancelEvent)
+	admin.GET("/events/:id/report", adminController.GetEventReport)
+	admin.POST("/users", adminController.CreateAdmin)
+	admin.PUT("/users/promote", adminController.PromoteToAdmin)
 	admin.POST("/events/:id/sorteo", sorteoController.CreateSorteo)
 	admin.GET("/sorteos", sorteoController.ListSorteosAdmin)
 	admin.POST("/sorteos/:id/draw", sorteoController.RunDraw)
-
-	// TODO (entrega final): agregar el resto de rutas de administrador (CRUD de eventos, reportes)
 
 	port := os.Getenv("PORT")
 	if port == "" {
