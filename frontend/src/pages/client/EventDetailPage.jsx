@@ -5,6 +5,7 @@ import { buyTicket } from '../../api/ticketsApi'
 import Navbar from '../../components/common/Navbar'
 import Footer from '../../components/common/Footer'
 import LoadingSpinner from '../../components/common/LoadingSpinner'
+import SorteoPanel from '../../components/sorteos/SorteoPanel'
 import { useAuth } from '../../hooks/useAuth'
 
 function EventDetailPage() {
@@ -169,6 +170,8 @@ function EventDetailPage() {
             )}
           </div>
         </div>
+
+        <SorteoPanel eventId={id} />
       </main>
       <Footer />
     </div>

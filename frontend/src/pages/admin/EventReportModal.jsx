@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import * as adminApi from '../../api/adminApi'
 import LoadingSpinner from '../../components/common/LoadingSpinner'
+import SorteoAdminSection from '../../components/sorteos/SorteoAdminSection'
 
 function EventReportModal({ eventId, onClose }) {
   const [report, setReport] = useState(null)
@@ -84,6 +85,8 @@ function EventReportModal({ eventId, onClose }) {
                 </table>
               </div>
             )}
+
+            <SorteoAdminSection eventId={eventId} />
           </>
         )}
 

@@ -600,3 +600,51 @@ a:hover { text-decoration: underline; }
   font-weight: 600;
   font-size: 0.9rem;
 }
+
+/* ---- SORTEO (Bonus Track) ---- */
+.sorteo-panel {
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1.5px dashed var(--brand);
+  border-radius: var(--r);
+}
+.sorteo-panel.sorteo-compact {
+  margin-top: 0.875rem;
+  padding: 1rem;
+}
+.sorteo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.sorteo-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.sorteo-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.875rem;
+}
+.sorteo-buy-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.sorteo-qty-input {
+  width: 70px;
+  text-align: center;
+  flex: none;
+}
+.sorteo-my-chances {
+  font-size: 0.78rem;
+  color: var(--brand);
+  font-weight: 600;
+  margin-top: 0.6rem;
+}
+.badge-sorteo { background: #FEF9C3; color: #854D0E; }
