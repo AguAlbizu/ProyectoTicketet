@@ -6,7 +6,7 @@ import "time"
 // Estado: activo (admite chances) | realizado (ya tiene ganador) | cancelado.
 type Sorteo struct {
 	IDSorteo       uint       `gorm:"primaryKey;autoIncrement;column:id_sorteo" json:"id_sorteo"`
-	IDEvents       uint       `gorm:"not null;uniqueIndex;column:id_events" json:"id_events"`
+	IDEvents       uint       `gorm:"not null;index;column:id_events" json:"id_events"`
 	Event          Event      `gorm:"foreignKey:IDEvents;references:IDEvents" json:"event,omitempty"`
 	Nombre         string     `gorm:"type:varchar(150);not null" json:"nombre"`
 	ValorChance    int        `gorm:"not null" json:"valor_chance"`

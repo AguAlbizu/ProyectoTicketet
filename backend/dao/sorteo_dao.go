@@ -27,13 +27,32 @@ func (d *SorteoDAO) GetSorteoByID(id uint) (*domain.Sorteo, error) {
 	return &sorteo, nil
 }
 
+// GetSorteoByEventID retorna el sorteo más reciente del evento (activo o ya realizado).
 func (d *SorteoDAO) GetSorteoByEventID(eventID uint) (*domain.Sorteo, error) {
 	var sorteo domain.Sorteo
-	err := d.db.Preload("Ganador").Where("id_events = ?", eventID).First(&sorteo).Error
+	err := d.db.Preload("Ganador").Where("id_events = ?", eventID).Order("created_at DESC").First(&sorteo).Error
 	if err != nil {
 		return nil, err
 	}
 	return &sorteo, nil
+}
+
+// GetActiveSorteoByEventID retorna el sorteo activo del evento, si tiene uno cargado.
+// Un evento admite un único sorteo activo a la vez, aunque puede tener varios en su historial.
+func (d *SorteoDAO) GetActiveSorteoByEventID(eventID uint) (*domain.Sorteo, error) {
+	var sorteo domain.Sorteo
+	err := d.db.Where("id_events = ? AND estado = 'activo'", eventID).First(&sorteo).Error
+	if err != nil {
+		return nil, err
+	}
+	return &sorteo, nil
+}
+
+// GetSorteosByEventID retorna el historial completo de sorteos de un evento, más recientes primero.
+func (d *SorteoDAO) GetSorteosByEventID(eventID uint) ([]domain.Sorteo, error) {
+	var sorteos []domain.Sorteo
+	err := d.db.Preload("Ganador").Where("id_events = ?", eventID).Order("created_at DESC").Find(&sorteos).Error
+	return sorteos, err
 }
 
 func (d *SorteoDAO) UpdateSorteo(sorteo *domain.Sorteo) error {

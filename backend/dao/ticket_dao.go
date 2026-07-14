@@ -50,9 +50,11 @@ func (d *TicketDAO) GetActiveTicketByUserAndEvent(userID, eventID uint) (*domain
 	return &ticket, nil
 }
 
+// GetTicketsByEventID retorna TODOS los tickets del evento (cualquier estado), usado por el
+// reporte admin para distinguir compradores originales de titulares con entrada activa.
 func (d *TicketDAO) GetTicketsByEventID(eventID uint) ([]domain.Ticket, error) {
 	var tickets []domain.Ticket
-	err := d.db.Preload("User").Where("id_events = ? AND estado = 'activo'", eventID).Find(&tickets).Error
+	err := d.db.Preload("User").Where("id_events = ?", eventID).Find(&tickets).Error
 	return tickets, err
 }
 

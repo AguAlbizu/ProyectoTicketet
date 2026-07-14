@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import NotificationBell from '../notifications/NotificationBell'
 
 function Navbar() {
   const { user, isAuthenticated, logout } = useAuth()
@@ -24,6 +25,7 @@ function Navbar() {
             {user?.rol === 'administrador' && (
               <Link to="/admin/events" className="navbar-link">Panel Admin</Link>
             )}
+            <NotificationBell />
             <button className="btn btn-ghost" onClick={handleLogout}>Salir</button>
           </>
         ) : (

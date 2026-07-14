@@ -143,3 +143,37 @@ func (c *SorteoController) RunDraw(ctx *gin.Context) {
 	}
 	ctx.JSON(http.StatusOK, gin.H{"message": "Sorteo realizado", "ganador": winner})
 }
+
+// GetSorteosByEvent handles GET /api/admin/events/:id/sorteos — requiere JWT + rol admin.
+// Retorna el historial completo de sorteos del evento (activos y ya realizados).
+func (c *SorteoController) GetSorteosByEvent(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido"})
+		return
+	}
+
+	sorteos, err := c.sorteoService.GetSorteosByEventID(uint(id))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error al obtener los sorteos del evento"})
+		return
+	}
+	ctx.JSON(http.StatusOK, sorteos)
+}
+
+// GetChanceSummary handles GET /api/admin/sorteos/:id/chances — requiere JWT + rol admin.
+// Retorna, para el sorteo, cada usuario participante con la cantidad de chances que compró.
+func (c *SorteoController) GetChanceSummary(ctx *gin.Context) {
+	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "ID inválido"})
+		return
+	}
+
+	summary, err := c.sorteoService.GetChanceSummary(uint(id))
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error al obtener los participantes del sorteo"})
+		return
+	}
+	ctx.JSON(http.StatusOK, summary)
+}

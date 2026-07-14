@@ -19,7 +19,7 @@ import (
 )
 
 func setupSorteoTestRouter(sorteoDAO *mockSorteoDAO, chanceDAO *mockChanceDAO, eventDAO *mockSorteoEventDAO, ticketDAO *mockSorteoTicketDAO, userDAO *mockSorteoUserDAO) *gin.Engine {
-	svc := services.NewSorteoService(sorteoDAO, chanceDAO, eventDAO, ticketDAO, userDAO, &mockEmailClient{})
+	svc := services.NewSorteoService(sorteoDAO, chanceDAO, eventDAO, ticketDAO, userDAO, &mockSorteoNotificationDAO{})
 	ctrl := controllers.NewSorteoController(svc)
 	r := gin.New()
 
@@ -33,8 +33,10 @@ func setupSorteoTestRouter(sorteoDAO *mockSorteoDAO, chanceDAO *mockChanceDAO, e
 	admin := r.Group("/api/admin")
 	admin.Use(middleware.AuthMiddleware(), middleware.RequireRole("administrador"))
 	admin.POST("/events/:id/sorteo", ctrl.CreateSorteo)
+	admin.GET("/events/:id/sorteos", ctrl.GetSorteosByEvent)
 	admin.GET("/sorteos", ctrl.ListSorteosAdmin)
 	admin.POST("/sorteos/:id/draw", ctrl.RunDraw)
+	admin.GET("/sorteos/:id/chances", ctrl.GetChanceSummary)
 
 	return r
 }
@@ -198,6 +200,48 @@ func TestListSorteosAdminEndpoint(t *testing.T) {
 	r := setupSorteoTestRouter(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/admin/sorteos", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestGetSorteosByEventEndpoint_Success(t *testing.T) {
+	sorteoDAO := &mockSorteoDAO{sorteosByEvent: []domain.Sorteo{
+		{IDSorteo: 2, IDEvents: 1, Nombre: "Segunda rifa", Estado: "activo"},
+		{IDSorteo: 1, IDEvents: 1, Nombre: "Primera rifa", Estado: "realizado"},
+	}}
+	r := setupSorteoTestRouter(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/events/1/sorteos", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestGetSorteosByEventEndpoint_Forbidden(t *testing.T) {
+	r := setupSorteoTestRouter(&mockSorteoDAO{}, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/events/1/sorteos", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken(t)) // token de cliente, no admin
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func TestGetChanceSummaryEndpoint_Success(t *testing.T) {
+	chanceDAO := &mockChanceDAO{chances: []domain.Chance{
+		{IDChance: 1, IDSorteo: 1, IDUsers: 1, User: domain.User{IDUsers: 1, Nombre: "Ana", Email: "ana@test.com"}},
+		{IDChance: 2, IDSorteo: 1, IDUsers: 1, User: domain.User{IDUsers: 1, Nombre: "Ana", Email: "ana@test.com"}},
+		{IDChance: 3, IDSorteo: 1, IDUsers: 2, User: domain.User{IDUsers: 2, Nombre: "Beto", Email: "beto@test.com"}},
+	}}
+	r := setupSorteoTestRouter(&mockSorteoDAO{}, chanceDAO, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/sorteos/1/chances", nil)
 	req.Header.Set("Authorization", "Bearer "+adminToken(t))
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)

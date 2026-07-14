@@ -58,6 +58,8 @@ type BuyerInfo struct {
 	Email       string    `json:"email"`
 	TicketID    uint      `json:"ticket_id"`
 	FechaCompra time.Time `json:"fecha_compra"`
+	Estado      string    `json:"estado"`
+	Origen      string    `json:"origen"`
 }
 
 type EventReport struct {
@@ -67,7 +69,12 @@ type EventReport struct {
 	CupoDisponible      int         `json:"cupo_disponible"`
 	EntradasVendidas    int         `json:"entradas_vendidas"`
 	PorcentajeOcupacion float64     `json:"porcentaje_ocupacion"`
-	Compradores         []BuyerInfo `json:"compradores"`
+	// Compradores: todos los que compraron originalmente una entrada (origen "compra"),
+	// en cualquier estado — si la cancelaron o transfirieron, el campo Estado lo indica.
+	Compradores []BuyerInfo `json:"compradores"`
+	// TitularesActivos: quienes hoy tienen una entrada activa, ya sea porque la compraron
+	// o porque se la transfirieron.
+	TitularesActivos []BuyerInfo `json:"titulares_activos"`
 }
 
 func (s *AdminEventService) GetAllEvents() ([]domain.Event, error) {
@@ -172,15 +179,24 @@ func (s *AdminEventService) GetEventReport(id uint) (*EventReport, error) {
 		return nil, fmt.Errorf("error al obtener las entradas")
 	}
 
-	buyers := make([]BuyerInfo, 0, len(tickets))
+	compradores := make([]BuyerInfo, 0, len(tickets))
+	activos := make([]BuyerInfo, 0, len(tickets))
 	for _, t := range tickets {
-		buyers = append(buyers, BuyerInfo{
+		info := BuyerInfo{
 			UserID:      t.IDUsers,
 			Nombre:      t.User.Nombre,
 			Email:       t.User.Email,
 			TicketID:    t.IDTickets,
 			FechaCompra: t.FechaCompra,
-		})
+			Estado:      t.Estado,
+			Origen:      t.Origen,
+		}
+		if t.Origen == "compra" || t.Origen == "" {
+			compradores = append(compradores, info)
+		}
+		if t.Estado == "activo" {
+			activos = append(activos, info)
+		}
 	}
 
 	entradasVendidas := event.Capacidad - event.CupoDisponible
@@ -196,6 +212,7 @@ func (s *AdminEventService) GetEventReport(id uint) (*EventReport, error) {
 		CupoDisponible:      event.CupoDisponible,
 		EntradasVendidas:    entradasVendidas,
 		PorcentajeOcupacion: porcentaje,
-		Compradores:         buyers,
+		Compradores:         compradores,
+		TitularesActivos:    activos,
 	}, nil
 }

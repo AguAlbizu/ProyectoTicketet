@@ -14,13 +14,16 @@ import (
 // --- Mocks ---
 
 type mockSorteoDAO struct {
-	sorteo      *domain.Sorteo
-	sorteos     []domain.Sorteo
-	getByIDErr  error
-	getByEvtErr error
-	createErr   error
-	updateErr   error
-	lastSaved   *domain.Sorteo
+	sorteo         *domain.Sorteo
+	sorteos        []domain.Sorteo
+	sorteosByEvent []domain.Sorteo
+	activeSorteo   *domain.Sorteo
+	getByIDErr     error
+	getByEvtErr    error
+	getActiveErr   error
+	createErr      error
+	updateErr      error
+	lastSaved      *domain.Sorteo
 }
 
 func (m *mockSorteoDAO) CreateSorteo(s *domain.Sorteo) error {
@@ -39,6 +42,18 @@ func (m *mockSorteoDAO) GetSorteoByEventID(eventID uint) (*domain.Sorteo, error)
 		return nil, m.getByEvtErr
 	}
 	return m.sorteo, nil
+}
+func (m *mockSorteoDAO) GetActiveSorteoByEventID(eventID uint) (*domain.Sorteo, error) {
+	if m.getActiveErr != nil {
+		return nil, m.getActiveErr
+	}
+	if m.activeSorteo == nil {
+		return nil, assert.AnError
+	}
+	return m.activeSorteo, nil
+}
+func (m *mockSorteoDAO) GetSorteosByEventID(eventID uint) ([]domain.Sorteo, error) {
+	return m.sorteosByEvent, nil
 }
 func (m *mockSorteoDAO) UpdateSorteo(s *domain.Sorteo) error {
 	m.lastSaved = s
@@ -103,12 +118,12 @@ func (m *mockSorteoUserDAO) GetUserByID(id uint) (*domain.User, error) {
 	return u, nil
 }
 
-type mockEmailClient struct {
-	sent []string
+type mockSorteoNotificationDAO struct {
+	created []domain.Notification
 }
 
-func (m *mockEmailClient) SendEmail(to, subject, body string) error {
-	m.sent = append(m.sent, to)
+func (m *mockSorteoNotificationDAO) CreateNotification(n *domain.Notification) error {
+	m.created = append(m.created, *n)
 	return nil
 }
 
@@ -117,7 +132,7 @@ func (m *mockEmailClient) SendEmail(to, subject, body string) error {
 func TestCreateSorteo_Success(t *testing.T) {
 	eventDAO := &mockSorteoEventDAO{event: &domain.Event{IDEvents: 1}}
 	sorteoDAO := &mockSorteoDAO{getByEvtErr: assert.AnError}
-	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, eventDAO, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockEmailClient{})
+	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, eventDAO, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
 
 	sorteo, err := svc.CreateSorteo(1, "Rifa solidaria", 500)
 	assert.NoError(t, err)
@@ -127,25 +142,36 @@ func TestCreateSorteo_Success(t *testing.T) {
 
 func TestCreateSorteo_EventNotFound(t *testing.T) {
 	eventDAO := &mockSorteoEventDAO{getErr: assert.AnError}
-	svc := services.NewSorteoService(&mockSorteoDAO{}, &mockChanceDAO{}, eventDAO, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockEmailClient{})
+	svc := services.NewSorteoService(&mockSorteoDAO{}, &mockChanceDAO{}, eventDAO, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
 
 	_, err := svc.CreateSorteo(99, "Rifa", 500)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "evento no encontrado")
 }
 
-func TestCreateSorteo_AlreadyExists(t *testing.T) {
+func TestCreateSorteo_ActiveAlreadyExists(t *testing.T) {
 	eventDAO := &mockSorteoEventDAO{event: &domain.Event{IDEvents: 1}}
-	sorteoDAO := &mockSorteoDAO{sorteo: &domain.Sorteo{IDSorteo: 1, IDEvents: 1}}
-	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, eventDAO, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockEmailClient{})
+	sorteoDAO := &mockSorteoDAO{activeSorteo: &domain.Sorteo{IDSorteo: 1, IDEvents: 1, Estado: "activo"}}
+	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, eventDAO, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
 
 	_, err := svc.CreateSorteo(1, "Rifa", 500)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "ya tiene un sorteo")
+	assert.Contains(t, err.Error(), "ya tiene un sorteo activo")
+}
+
+func TestCreateSorteo_AllowedAfterPreviousRealizado(t *testing.T) {
+	// Sin sorteo activo (el anterior ya fue realizado), se puede cargar uno nuevo para el mismo evento.
+	eventDAO := &mockSorteoEventDAO{event: &domain.Event{IDEvents: 1}}
+	sorteoDAO := &mockSorteoDAO{}
+	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, eventDAO, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
+
+	sorteo, err := svc.CreateSorteo(1, "Segunda rifa", 300)
+	assert.NoError(t, err)
+	assert.Equal(t, "activo", sorteo.Estado)
 }
 
 func TestCreateSorteo_InvalidValor(t *testing.T) {
-	svc := services.NewSorteoService(&mockSorteoDAO{}, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockEmailClient{})
+	svc := services.NewSorteoService(&mockSorteoDAO{}, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
 
 	_, err := svc.CreateSorteo(1, "Rifa", 0)
 	assert.Error(t, err)
@@ -158,18 +184,21 @@ func TestBuyChances_Success(t *testing.T) {
 	sorteoDAO := &mockSorteoDAO{sorteo: &domain.Sorteo{IDSorteo: 1, IDEvents: 1, Estado: "activo"}}
 	ticketDAO := &mockSorteoTicketDAO{ticket: &domain.Ticket{IDTickets: 1, IDUsers: 1, IDEvents: 1, Estado: "activo"}}
 	chanceDAO := &mockChanceDAO{}
-	svc := services.NewSorteoService(sorteoDAO, chanceDAO, &mockSorteoEventDAO{}, ticketDAO, &mockSorteoUserDAO{}, &mockEmailClient{})
+	notificationDAO := &mockSorteoNotificationDAO{}
+	svc := services.NewSorteoService(sorteoDAO, chanceDAO, &mockSorteoEventDAO{}, ticketDAO, &mockSorteoUserDAO{}, notificationDAO)
 
 	chances, err := svc.BuyChances(1, 1, 3)
 	assert.NoError(t, err)
 	assert.Len(t, chances, 3)
 	assert.Equal(t, 3, chanceDAO.created)
+	assert.Len(t, notificationDAO.created, 1, "debe crear una única notificación consolidada de la compra")
+	assert.Equal(t, "chance_comprada", notificationDAO.created[0].Tipo)
 }
 
 func TestBuyChances_NoTicket(t *testing.T) {
 	sorteoDAO := &mockSorteoDAO{sorteo: &domain.Sorteo{IDSorteo: 1, IDEvents: 1, Estado: "activo"}}
 	ticketDAO := &mockSorteoTicketDAO{getErr: assert.AnError}
-	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, ticketDAO, &mockSorteoUserDAO{}, &mockEmailClient{})
+	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, ticketDAO, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
 
 	_, err := svc.BuyChances(1, 1, 1)
 	assert.Error(t, err)
@@ -178,7 +207,7 @@ func TestBuyChances_NoTicket(t *testing.T) {
 
 func TestBuyChances_SorteoNotActive(t *testing.T) {
 	sorteoDAO := &mockSorteoDAO{sorteo: &domain.Sorteo{IDSorteo: 1, IDEvents: 1, Estado: "realizado"}}
-	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockEmailClient{})
+	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
 
 	_, err := svc.BuyChances(1, 1, 1)
 	assert.Error(t, err)
@@ -187,7 +216,7 @@ func TestBuyChances_SorteoNotActive(t *testing.T) {
 
 func TestBuyChances_SorteoNotFound(t *testing.T) {
 	sorteoDAO := &mockSorteoDAO{getByIDErr: assert.AnError}
-	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockEmailClient{})
+	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
 
 	_, err := svc.BuyChances(1, 99, 1)
 	assert.Error(t, err)
@@ -195,7 +224,7 @@ func TestBuyChances_SorteoNotFound(t *testing.T) {
 }
 
 func TestBuyChances_InvalidCantidad(t *testing.T) {
-	svc := services.NewSorteoService(&mockSorteoDAO{}, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockEmailClient{})
+	svc := services.NewSorteoService(&mockSorteoDAO{}, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
 
 	_, err := svc.BuyChances(1, 1, 0)
 	assert.Error(t, err)
@@ -214,20 +243,23 @@ func TestRunDraw_Success(t *testing.T) {
 		1: {IDUsers: 1, Nombre: "Ana", Email: "ana@test.com"},
 		2: {IDUsers: 2, Nombre: "Beto", Email: "beto@test.com"},
 	}}
-	emailClient := &mockEmailClient{}
-	svc := services.NewSorteoService(sorteoDAO, chanceDAO, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, userDAO, emailClient)
+	notificationDAO := &mockSorteoNotificationDAO{}
+	svc := services.NewSorteoService(sorteoDAO, chanceDAO, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, userDAO, notificationDAO)
 
 	winner, err := svc.RunDraw(1)
 	assert.NoError(t, err)
 	assert.NotNil(t, winner)
 	assert.Equal(t, "realizado", sorteoDAO.lastSaved.Estado)
 	assert.NotNil(t, sorteoDAO.lastSaved.IDGanador)
-	assert.Len(t, emailClient.sent, 2, "debe notificar a ambos participantes (ganador y perdedor)")
+	assert.Len(t, notificationDAO.created, 2, "debe notificar a ambos participantes (ganador y perdedor)")
+	tipos := []string{notificationDAO.created[0].Tipo, notificationDAO.created[1].Tipo}
+	assert.Contains(t, tipos, "sorteo_ganador")
+	assert.Contains(t, tipos, "sorteo_perdedor")
 }
 
 func TestRunDraw_NoParticipants(t *testing.T) {
 	sorteoDAO := &mockSorteoDAO{sorteo: &domain.Sorteo{IDSorteo: 1, Estado: "activo"}}
-	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockEmailClient{})
+	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
 
 	_, err := svc.RunDraw(1)
 	assert.Error(t, err)
@@ -236,7 +268,7 @@ func TestRunDraw_NoParticipants(t *testing.T) {
 
 func TestRunDraw_AlreadyRealizado(t *testing.T) {
 	sorteoDAO := &mockSorteoDAO{sorteo: &domain.Sorteo{IDSorteo: 1, Estado: "realizado"}}
-	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockEmailClient{})
+	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
 
 	_, err := svc.RunDraw(1)
 	assert.Error(t, err)
@@ -245,7 +277,7 @@ func TestRunDraw_AlreadyRealizado(t *testing.T) {
 
 func TestRunDraw_SorteoNotFound(t *testing.T) {
 	sorteoDAO := &mockSorteoDAO{getByIDErr: assert.AnError}
-	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockEmailClient{})
+	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
 
 	_, err := svc.RunDraw(99)
 	assert.Error(t, err)
@@ -256,7 +288,7 @@ func TestRunDraw_SorteoNotFound(t *testing.T) {
 
 func TestGetSorteoByEventID_NotFound(t *testing.T) {
 	sorteoDAO := &mockSorteoDAO{getByEvtErr: assert.AnError}
-	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockEmailClient{})
+	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
 
 	_, err := svc.GetSorteoByEventID(1)
 	assert.Error(t, err)
@@ -265,9 +297,40 @@ func TestGetSorteoByEventID_NotFound(t *testing.T) {
 
 func TestGetMyChancesCount(t *testing.T) {
 	chanceDAO := &mockChanceDAO{countValue: 5}
-	svc := services.NewSorteoService(&mockSorteoDAO{}, chanceDAO, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockEmailClient{})
+	svc := services.NewSorteoService(&mockSorteoDAO{}, chanceDAO, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
 
 	count, err := svc.GetMyChancesCount(1, 1)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(5), count)
+}
+
+// --- Tests: GetSorteosByEventID / GetChanceSummary ---
+
+func TestGetSorteosByEventID(t *testing.T) {
+	sorteoDAO := &mockSorteoDAO{sorteosByEvent: []domain.Sorteo{
+		{IDSorteo: 2, IDEvents: 1, Estado: "activo"},
+		{IDSorteo: 1, IDEvents: 1, Estado: "realizado"},
+	}}
+	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
+
+	sorteos, err := svc.GetSorteosByEventID(1)
+	assert.NoError(t, err)
+	assert.Len(t, sorteos, 2)
+}
+
+func TestGetChanceSummary_GroupsByUser(t *testing.T) {
+	chanceDAO := &mockChanceDAO{chances: []domain.Chance{
+		{IDChance: 1, IDSorteo: 1, IDUsers: 1, User: domain.User{IDUsers: 1, Nombre: "Ana", Email: "ana@test.com"}},
+		{IDChance: 2, IDSorteo: 1, IDUsers: 1, User: domain.User{IDUsers: 1, Nombre: "Ana", Email: "ana@test.com"}},
+		{IDChance: 3, IDSorteo: 1, IDUsers: 2, User: domain.User{IDUsers: 2, Nombre: "Beto", Email: "beto@test.com"}},
+	}}
+	svc := services.NewSorteoService(&mockSorteoDAO{}, chanceDAO, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
+
+	summary, err := svc.GetChanceSummary(1)
+	assert.NoError(t, err)
+	assert.Len(t, summary, 2, "debe agrupar por usuario, no una fila por chance")
+	assert.Equal(t, "Ana", summary[0].Nombre)
+	assert.Equal(t, 2, summary[0].Cantidad)
+	assert.Equal(t, "Beto", summary[1].Nombre)
+	assert.Equal(t, 1, summary[1].Cantidad)
 }
