@@ -29,7 +29,7 @@ func (d *SorteoDAO) GetSorteoByID(id uint) (*domain.Sorteo, error) {
 
 func (d *SorteoDAO) GetSorteoByEventID(eventID uint) (*domain.Sorteo, error) {
 	var sorteo domain.Sorteo
-	err := d.db.Where("id_events = ?", eventID).First(&sorteo).Error
+	err := d.db.Preload("Ganador").Where("id_events = ?", eventID).First(&sorteo).Error
 	if err != nil {
 		return nil, err
 	}
