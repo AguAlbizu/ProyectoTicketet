@@ -58,6 +58,7 @@ func setupTicketTestRouter(ticketDAO *mockTicketDAO, eventDAO *mockEventDAOForTi
 	protected.POST("/tickets", ctrl.BuyTicket)
 	protected.GET("/tickets/my-tickets", ctrl.GetMyTickets)
 	protected.DELETE("/tickets/:id", ctrl.CancelTicket)
+	protected.PUT("/tickets/:id/transfer", ctrl.TransferTicket)
 	return r
 }
 
@@ -334,4 +335,114 @@ func TestCancelTicketEndpoint_NotFound(t *testing.T) {
 
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+// TestCancelTicketEndpoint_InvalidID verifica que DELETE /api/tickets/:id con ID no numérico retorna 400.
+func TestCancelTicketEndpoint_InvalidID(t *testing.T) {
+	r := setupTicketTestRouter(&mockTicketDAO{}, &mockEventDAOForTicket{}, &mockUserDAOForTicket{})
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/tickets/abc", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken(t))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestCancelTicketEndpoint_Forbidden verifica que cancelar la entrada de otro usuario retorna 403.
+func TestCancelTicketEndpoint_Forbidden(t *testing.T) {
+	ticketDAO := &mockTicketDAO{ticket: &domain.Ticket{IDTickets: 1, IDUsers: 99, Estado: "activo"}}
+	r := setupTicketTestRouter(ticketDAO, &mockEventDAOForTicket{event: &domain.Event{}}, &mockUserDAOForTicket{})
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/tickets/1", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken(t))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+// =============================================
+// TICKET CONTROLLER — TransferTicket
+// =============================================
+
+// TestTransferTicketEndpoint_NoToken verifica que PUT /api/tickets/:id/transfer sin token retorna 401.
+func TestTransferTicketEndpoint_NoToken(t *testing.T) {
+	r := setupTicketTestRouter(&mockTicketDAO{}, &mockEventDAOForTicket{}, &mockUserDAOForTicket{})
+
+	req := httptest.NewRequest(http.MethodPut, "/api/tickets/1/transfer", jsonBody(`{"target_email":"x@test.com"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+// TestTransferTicketEndpoint_Success verifica que transferir una entrada activa propia retorna 200.
+func TestTransferTicketEndpoint_Success(t *testing.T) {
+	ticketDAO := &mockTicketDAO{ticket: &domain.Ticket{IDTickets: 1, IDUsers: 1, IDEvents: 1, Estado: "activo"}}
+	userDAO := &mockUserDAOForTicket{user: &domain.User{IDUsers: 2, Email: "destino@test.com"}}
+	r := setupTicketTestRouter(ticketDAO, &mockEventDAOForTicket{event: &domain.Event{IDEvents: 1}}, userDAO)
+
+	req := httptest.NewRequest(http.MethodPut, "/api/tickets/1/transfer", jsonBody(`{"target_email":"destino@test.com"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+testToken(t))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+// TestTransferTicketEndpoint_MissingEmail verifica que sin target_email retorna 400.
+func TestTransferTicketEndpoint_MissingEmail(t *testing.T) {
+	r := setupTicketTestRouter(&mockTicketDAO{}, &mockEventDAOForTicket{}, &mockUserDAOForTicket{})
+
+	req := httptest.NewRequest(http.MethodPut, "/api/tickets/1/transfer", jsonBody(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+testToken(t))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestTransferTicketEndpoint_InvalidID verifica que un ID no numérico retorna 400.
+func TestTransferTicketEndpoint_InvalidID(t *testing.T) {
+	r := setupTicketTestRouter(&mockTicketDAO{}, &mockEventDAOForTicket{}, &mockUserDAOForTicket{})
+
+	req := httptest.NewRequest(http.MethodPut, "/api/tickets/abc/transfer", jsonBody(`{"target_email":"x@test.com"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+testToken(t))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestTransferTicketEndpoint_TargetNotFound verifica que transferir a un email inexistente retorna 404.
+func TestTransferTicketEndpoint_TargetNotFound(t *testing.T) {
+	ticketDAO := &mockTicketDAO{ticket: &domain.Ticket{IDTickets: 1, IDUsers: 1, IDEvents: 1, Estado: "activo"}}
+	r := setupTicketTestRouter(ticketDAO, &mockEventDAOForTicket{event: &domain.Event{IDEvents: 1}}, &mockUserDAOForTicket{})
+
+	req := httptest.NewRequest(http.MethodPut, "/api/tickets/1/transfer", jsonBody(`{"target_email":"noexiste@test.com"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+testToken(t))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+// TestTransferTicketEndpoint_Forbidden verifica que transferir la entrada de otro usuario retorna 403.
+func TestTransferTicketEndpoint_Forbidden(t *testing.T) {
+	ticketDAO := &mockTicketDAO{ticket: &domain.Ticket{IDTickets: 1, IDUsers: 99, Estado: "activo"}}
+	r := setupTicketTestRouter(ticketDAO, &mockEventDAOForTicket{event: &domain.Event{}}, &mockUserDAOForTicket{})
+
+	req := httptest.NewRequest(http.MethodPut, "/api/tickets/1/transfer", jsonBody(`{"target_email":"x@test.com"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+testToken(t))
+	w := httptest.NewRecorder()
+
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusForbidden, w.Code)
 }

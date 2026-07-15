@@ -128,3 +128,82 @@ func TestLogin_UserNotFound(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "credenciales inválidas")
 }
+
+// TestPromoteToAdmin_Success verifica que un usuario cliente existente pasa a administrador.
+func TestPromoteToAdmin_Success(t *testing.T) {
+	mockDAO := &mockAuthUserDAO{user: &domain.User{Email: "juan@test.com", Rol: "cliente"}}
+	svc := services.NewAuthService(mockDAO)
+
+	err := svc.PromoteToAdmin("juan@test.com")
+	assert.NoError(t, err)
+	assert.Equal(t, "administrador", mockDAO.lastRole)
+}
+
+// TestPromoteToAdmin_UserNotFound verifica que promover un email inexistente retorna error.
+func TestPromoteToAdmin_UserNotFound(t *testing.T) {
+	mockDAO := &mockAuthUserDAO{findErr: gorm.ErrRecordNotFound}
+	svc := services.NewAuthService(mockDAO)
+
+	err := svc.PromoteToAdmin("noexiste@test.com")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "usuario no encontrado")
+}
+
+// TestPromoteToAdmin_AlreadyAdmin verifica que promover a alguien que ya es admin retorna error.
+func TestPromoteToAdmin_AlreadyAdmin(t *testing.T) {
+	mockDAO := &mockAuthUserDAO{user: &domain.User{Email: "admin@test.com", Rol: "administrador"}}
+	svc := services.NewAuthService(mockDAO)
+
+	err := svc.PromoteToAdmin("admin@test.com")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ya es administrador")
+}
+
+// TestRegisterAdmin_Success verifica que se crea un usuario con rol administrador.
+func TestRegisterAdmin_Success(t *testing.T) {
+	mockDAO := &mockAuthUserDAO{findErr: gorm.ErrRecordNotFound}
+	svc := services.NewAuthService(mockDAO)
+
+	err := svc.RegisterAdmin("Root", "root@test.com", "password123")
+	assert.NoError(t, err)
+}
+
+// TestRegisterAdmin_DuplicateEmail verifica que crear un admin con email ya registrado retorna error.
+func TestRegisterAdmin_DuplicateEmail(t *testing.T) {
+	mockDAO := &mockAuthUserDAO{user: &domain.User{Email: "root@test.com"}}
+	svc := services.NewAuthService(mockDAO)
+
+	err := svc.RegisterAdmin("Root", "root@test.com", "password123")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "el email ya está registrado")
+}
+
+// TestGenerateToken_MissingSecret verifica que sin JWT_SECRET configurado retorna error.
+func TestGenerateToken_MissingSecret(t *testing.T) {
+	os.Unsetenv("JWT_SECRET")
+
+	_, err := utils.GenerateToken(1, "cliente", "test@test.com")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "JWT_SECRET")
+}
+
+// TestValidateToken_Invalid verifica que un token malformado retorna error.
+func TestValidateToken_Invalid(t *testing.T) {
+	os.Setenv("JWT_SECRET", "test_secret_para_tests")
+
+	_, err := utils.ValidateToken("token-invalido")
+	assert.Error(t, err)
+}
+
+// TestValidateToken_WrongSecret verifica que un token firmado con otro secret es rechazado.
+func TestValidateToken_WrongSecret(t *testing.T) {
+	os.Setenv("JWT_SECRET", "secret-original")
+	token, err := utils.GenerateToken(1, "cliente", "test@test.com")
+	assert.NoError(t, err)
+
+	os.Setenv("JWT_SECRET", "otro-secret")
+	_, err = utils.ValidateToken(token)
+	assert.Error(t, err)
+
+	os.Setenv("JWT_SECRET", "test_secret_para_tests")
+}

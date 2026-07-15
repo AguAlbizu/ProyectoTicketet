@@ -142,6 +142,45 @@ func TestCreateSorteoEndpoint_Forbidden(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
+func TestCreateSorteoEndpoint_EventNotFound(t *testing.T) {
+	eventDAO := &mockSorteoEventDAO{getErr: assert.AnError}
+	r := setupSorteoTestRouter(&mockSorteoDAO{getByEvtErr: assert.AnError}, &mockChanceDAO{}, eventDAO, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/events/99/sorteo", jsonBody(`{"nombre":"Rifa","valor_chance":500}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func TestCreateSorteoEndpoint_AlreadyActive(t *testing.T) {
+	eventDAO := &mockSorteoEventDAO{event: &domain.Event{IDEvents: 1}}
+	sorteoDAO := &mockSorteoDAO{activeSorteo: &domain.Sorteo{IDSorteo: 1, IDEvents: 1, Estado: "activo"}}
+	r := setupSorteoTestRouter(sorteoDAO, &mockChanceDAO{}, eventDAO, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/events/1/sorteo", jsonBody(`{"nombre":"Rifa","valor_chance":500}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestCreateSorteoEndpoint_InvalidID(t *testing.T) {
+	r := setupSorteoTestRouter(&mockSorteoDAO{}, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/admin/events/abc/sorteo", jsonBody(`{"nombre":"Rifa","valor_chance":500}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+adminToken(t))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
 func TestCreateSorteoEndpoint_Success(t *testing.T) {
 	eventDAO := &mockSorteoEventDAO{event: &domain.Event{IDEvents: 1}}
 	r := setupSorteoTestRouter(&mockSorteoDAO{getByEvtErr: assert.AnError}, &mockChanceDAO{}, eventDAO, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{})
