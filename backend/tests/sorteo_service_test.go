@@ -9,6 +9,7 @@ import (
 	"ticketapp/services"
 
 	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 )
 
 // --- Mocks ---
@@ -286,13 +287,25 @@ func TestRunDraw_SorteoNotFound(t *testing.T) {
 
 // --- Tests: GetSorteoByEventID / GetMyChancesCount ---
 
-func TestGetSorteoByEventID_NotFound(t *testing.T) {
+func TestGetSorteoByEventID_NoSorteoCargado(t *testing.T) {
+	// No tener sorteo es un estado válido (la mayoría de los eventos no tienen uno):
+	// no debe propagarse como error.
+	sorteoDAO := &mockSorteoDAO{getByEvtErr: gorm.ErrRecordNotFound}
+	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
+
+	sorteo, err := svc.GetSorteoByEventID(1)
+	assert.NoError(t, err)
+	assert.Nil(t, sorteo)
+}
+
+func TestGetSorteoByEventID_DBError(t *testing.T) {
+	// Un fallo real de la base de datos sí debe propagarse como error.
 	sorteoDAO := &mockSorteoDAO{getByEvtErr: assert.AnError}
 	svc := services.NewSorteoService(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{}, &mockSorteoNotificationDAO{})
 
 	_, err := svc.GetSorteoByEventID(1)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "no tiene sorteo")
+	assert.Contains(t, err.Error(), "error al obtener el sorteo")
 }
 
 func TestGetMyChancesCount(t *testing.T) {

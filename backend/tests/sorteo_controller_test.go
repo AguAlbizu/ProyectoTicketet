@@ -16,6 +16,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
+	"gorm.io/gorm"
 )
 
 func setupSorteoTestRouter(sorteoDAO *mockSorteoDAO, chanceDAO *mockChanceDAO, eventDAO *mockSorteoEventDAO, ticketDAO *mockSorteoTicketDAO, userDAO *mockSorteoUserDAO) *gin.Engine {
@@ -63,7 +64,21 @@ func TestGetSorteoByEventEndpoint_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestGetSorteoByEventEndpoint_NotFound(t *testing.T) {
+func TestGetSorteoByEventEndpoint_NoSorteoCargado(t *testing.T) {
+	// El evento no tiene sorteo cargado: es un estado válido, responde 200 con body null,
+	// no 404 (evita ensuciar la consola del front en cada evento sin sorteo).
+	sorteoDAO := &mockSorteoDAO{getByEvtErr: gorm.ErrRecordNotFound}
+	r := setupSorteoTestRouter(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/events/1/sorteo", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "null", w.Body.String())
+}
+
+func TestGetSorteoByEventEndpoint_DBError(t *testing.T) {
 	sorteoDAO := &mockSorteoDAO{getByEvtErr: assert.AnError}
 	r := setupSorteoTestRouter(sorteoDAO, &mockChanceDAO{}, &mockSorteoEventDAO{}, &mockSorteoTicketDAO{}, &mockSorteoUserDAO{})
 
@@ -71,7 +86,7 @@ func TestGetSorteoByEventEndpoint_NotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestBuyChancesEndpoint_NoToken(t *testing.T) {
