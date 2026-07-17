@@ -7,6 +7,7 @@ import (
 	"testing"
 	"ticketapp/domain"
 	"ticketapp/services"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -38,9 +39,10 @@ func (m *mockAdminEventDAO) FullUpdateEvent(event *domain.Event) error {
 }
 
 type mockAdminTicketDAO struct {
-	tickets      []domain.Ticket
-	getErr       error
-	cancelAllErr error
+	tickets        []domain.Ticket
+	getErr         error
+	cancelAllErr   error
+	cancelAllCalls int
 }
 
 func (m *mockAdminTicketDAO) GetTicketsByEventID(eventID uint) ([]domain.Ticket, error) {
@@ -50,6 +52,7 @@ func (m *mockAdminTicketDAO) GetTicketsByEventID(eventID uint) ([]domain.Ticket,
 	return m.tickets, nil
 }
 func (m *mockAdminTicketDAO) CancelAllTicketsByEventID(eventID uint) error {
+	m.cancelAllCalls++
 	return m.cancelAllErr
 }
 
@@ -97,4 +100,154 @@ func TestGetEventReport_EventNotFound(t *testing.T) {
 	_, err := svc.GetEventReport(99)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "evento no encontrado")
+}
+
+// --- Tests: GetAllEvents ---
+
+func TestGetAllEvents_ReturnsEvents(t *testing.T) {
+	eventDAO := &mockAdminEventDAO{events: []domain.Event{
+		{IDEvents: 1, Titulo: "Evento A"},
+		{IDEvents: 2, Titulo: "Evento B"},
+	}}
+	svc := services.NewAdminEventService(eventDAO, &mockAdminTicketDAO{})
+
+	events, err := svc.GetAllEvents()
+	assert.NoError(t, err)
+	assert.Len(t, events, 2)
+}
+
+// --- Tests: CreateEvent ---
+
+func TestCreateEvent_Success(t *testing.T) {
+	svc := services.NewAdminEventService(&mockAdminEventDAO{}, &mockAdminTicketDAO{})
+
+	event, err := svc.CreateEvent(services.CreateEventInput{
+		Titulo: "Recital", Fecha: time.Now(), Hora: "20:00", Capacidad: 100,
+	})
+	assert.NoError(t, err)
+	assert.Equal(t, "activo", event.Estado)
+	assert.Equal(t, 100, event.CupoDisponible, "el cupo inicial debe ser igual a la capacidad")
+}
+
+func TestCreateEvent_DAOError(t *testing.T) {
+	eventDAO := &mockAdminEventDAO{createErr: assert.AnError}
+	svc := services.NewAdminEventService(eventDAO, &mockAdminTicketDAO{})
+
+	_, err := svc.CreateEvent(services.CreateEventInput{Titulo: "Recital", Capacidad: 100})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error al crear el evento")
+}
+
+// --- Tests: UpdateEvent ---
+
+func TestUpdateEvent_NotFound(t *testing.T) {
+	eventDAO := &mockAdminEventDAO{getErr: assert.AnError}
+	svc := services.NewAdminEventService(eventDAO, &mockAdminTicketDAO{})
+
+	_, err := svc.UpdateEvent(99, services.UpdateEventInput{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "evento no encontrado")
+}
+
+func TestUpdateEvent_Deactivate_CancelsTickets(t *testing.T) {
+	eventDAO := &mockAdminEventDAO{event: &domain.Event{IDEvents: 1, Estado: "activo", Capacidad: 100, CupoDisponible: 80}}
+	ticketDAO := &mockAdminTicketDAO{}
+	svc := services.NewAdminEventService(eventDAO, ticketDAO)
+
+	event, err := svc.UpdateEvent(1, services.UpdateEventInput{Titulo: "X", Capacidad: 100, Estado: "cancelado"})
+	assert.NoError(t, err)
+	assert.Equal(t, "cancelado", event.Estado)
+	assert.Equal(t, 1, ticketDAO.cancelAllCalls, "debe cancelar todas las entradas al desactivar el evento")
+}
+
+func TestUpdateEvent_Reactivate_ResetsCupo(t *testing.T) {
+	eventDAO := &mockAdminEventDAO{event: &domain.Event{IDEvents: 1, Estado: "cancelado", Capacidad: 50, CupoDisponible: 50}}
+	svc := services.NewAdminEventService(eventDAO, &mockAdminTicketDAO{})
+
+	event, err := svc.UpdateEvent(1, services.UpdateEventInput{Titulo: "X", Capacidad: 80, Estado: "activo"})
+	assert.NoError(t, err)
+	assert.Equal(t, "activo", event.Estado)
+	assert.Equal(t, 80, event.CupoDisponible)
+}
+
+func TestUpdateEvent_NoStatusChange_RecalculatesCupo(t *testing.T) {
+	// Capacidad actual 100, cupo disponible 80 => 20 vendidas. Nueva capacidad 50 => cupo 30.
+	eventDAO := &mockAdminEventDAO{event: &domain.Event{IDEvents: 1, Estado: "activo", Capacidad: 100, CupoDisponible: 80}}
+	svc := services.NewAdminEventService(eventDAO, &mockAdminTicketDAO{})
+
+	event, err := svc.UpdateEvent(1, services.UpdateEventInput{Titulo: "X", Capacidad: 50})
+	assert.NoError(t, err)
+	assert.Equal(t, 30, event.CupoDisponible)
+}
+
+func TestUpdateEvent_NewCapacityBelowSold_ReturnsError(t *testing.T) {
+	// 20 vendidas, nueva capacidad 10 no alcanza.
+	eventDAO := &mockAdminEventDAO{event: &domain.Event{IDEvents: 1, Estado: "activo", Capacidad: 100, CupoDisponible: 80}}
+	svc := services.NewAdminEventService(eventDAO, &mockAdminTicketDAO{})
+
+	_, err := svc.UpdateEvent(1, services.UpdateEventInput{Titulo: "X", Capacidad: 10})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "menor a las entradas ya vendidas")
+}
+
+func TestUpdateEvent_CancelTicketsError(t *testing.T) {
+	eventDAO := &mockAdminEventDAO{event: &domain.Event{IDEvents: 1, Estado: "activo", Capacidad: 100, CupoDisponible: 80}}
+	ticketDAO := &mockAdminTicketDAO{cancelAllErr: assert.AnError}
+	svc := services.NewAdminEventService(eventDAO, ticketDAO)
+
+	_, err := svc.UpdateEvent(1, services.UpdateEventInput{Titulo: "X", Capacidad: 100, Estado: "cancelado"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error al cancelar las entradas")
+}
+
+func TestUpdateEvent_FullUpdateError(t *testing.T) {
+	eventDAO := &mockAdminEventDAO{
+		event:         &domain.Event{IDEvents: 1, Estado: "activo", Capacidad: 100, CupoDisponible: 80},
+		fullUpdateErr: assert.AnError,
+	}
+	svc := services.NewAdminEventService(eventDAO, &mockAdminTicketDAO{})
+
+	_, err := svc.UpdateEvent(1, services.UpdateEventInput{Titulo: "X", Capacidad: 100})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error al actualizar el evento")
+}
+
+// --- Tests: CancelEvent ---
+
+func TestCancelEvent_Success(t *testing.T) {
+	eventDAO := &mockAdminEventDAO{event: &domain.Event{IDEvents: 1, Estado: "activo"}}
+	ticketDAO := &mockAdminTicketDAO{}
+	svc := services.NewAdminEventService(eventDAO, ticketDAO)
+
+	err := svc.CancelEvent(1)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, ticketDAO.cancelAllCalls)
+}
+
+func TestCancelEvent_NotFound(t *testing.T) {
+	eventDAO := &mockAdminEventDAO{getErr: assert.AnError}
+	svc := services.NewAdminEventService(eventDAO, &mockAdminTicketDAO{})
+
+	err := svc.CancelEvent(99)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "evento no encontrado")
+}
+
+func TestCancelEvent_AlreadyCancelled(t *testing.T) {
+	eventDAO := &mockAdminEventDAO{event: &domain.Event{IDEvents: 1, Estado: "cancelado"}}
+	svc := services.NewAdminEventService(eventDAO, &mockAdminTicketDAO{})
+
+	err := svc.CancelEvent(1)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ya está cancelado")
+}
+
+func TestCancelEvent_CancelTicketsError(t *testing.T) {
+	eventDAO := &mockAdminEventDAO{event: &domain.Event{IDEvents: 1, Estado: "activo"}}
+	ticketDAO := &mockAdminTicketDAO{cancelAllErr: assert.AnError}
+	svc := services.NewAdminEventService(eventDAO, ticketDAO)
+
+	err := svc.CancelEvent(1)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "error al cancelar las entradas")
 }
