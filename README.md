@@ -6,7 +6,6 @@ Sistema web de compra y gestión de entradas para eventos. Permite a los usuario
 
 ## Tabla de Contenidos
 
-- [Capturas de Pantalla](#capturas-de-pantalla)
 - [Tecnologías Utilizadas](#tecnologías-utilizadas)
 - [Requisitos Previos](#requisitos-previos)
 - [Instalación y Uso](#instalación-y-uso)
@@ -18,24 +17,6 @@ Sistema web de compra y gestión de entradas para eventos. Permite a los usuario
 - [Diagrama de Base de Datos](#diagrama-de-base-de-datos)
 - [Decisiones de Diseño](#decisiones-de-diseño)
 
----
-
-## Capturas de Pantalla
-
-### Catálogo de Eventos
-![Catálogo](docs/screenshots/catalogo.png)
-
-### Detalle de Evento
-![Detalle](docs/screenshots/detalle.png)
-
-### Mis Entradas
-![Mis Entradas](docs/screenshots/mis-entradas.png)
-
-### Panel de Administración
-![Panel Admin](docs/screenshots/panel-admin.png)
-
-### Login
-![Login](docs/screenshots/login.png)
 
 ---
 
@@ -203,9 +184,8 @@ make test      # todos los tests con detalle
 make coverage  # cobertura función por función
 ```
 
-Cobertura actual: **52.4%** sobre servicios, utils y controladores (65 tests). El módulo de
-administrador (`admin_controller.go`, `admin_event_service.go`) todavía no tiene tests propios —
-es el próximo paso para llegar al 80% exigido en la entrega final.
+Cobertura actual: **85.1%** sobre servicios, utils y controladores (134 tests), por encima del
+80% exigido en la entrega final.
 
 ---
 
@@ -348,7 +328,9 @@ campana en el `Navbar`, con contador de no leídas y panel desplegable).
 
 ## Diagrama de Base de Datos
 
-El diagrama fuente se encuentra en [`docs/db-diagram.md`](docs/db-diagram.md).
+El diagrama completo (con las 6 entidades y sus claves foráneas) se encuentra en
+[`docs/db-diagram.md`](docs/db-diagram.md). `USERS`, `EVENTS` y `TICKETS` son las tres
+entidades principales; `SORTEOS`, `CHANCES` y `NOTIFICATIONS` se agregaron para el Bonus Track.
 
 ```mermaid
 erDiagram
@@ -390,13 +372,59 @@ erDiagram
         datetime updated_at
     }
 
-    USERS ||--o{ TICKETS : "tiene"
-    EVENTS ||--o{ TICKETS : "genera"
+    SORTEOS {
+        uint id_sorteo PK
+        uint id_events FK
+        varchar nombre
+        int valor_chance
+        varchar estado
+        uint id_ganador FK
+        datetime fecha_realizado
+        datetime created_at
+        datetime updated_at
+    }
+
+    CHANCES {
+        uint id_chance PK
+        uint id_sorteo FK
+        uint id_users FK
+        datetime fecha_compra
+        datetime created_at
+    }
+
+    NOTIFICATIONS {
+        uint id_notification PK
+        uint id_users FK
+        varchar tipo
+        varchar titulo
+        text mensaje
+        boolean leida
+        uint id_sorteo FK
+        datetime created_at
+    }
+
+    USERS       ||--o{ TICKETS       : "compra"
+    EVENTS      ||--o{ TICKETS       : "genera"
+    EVENTS      ||--o{ SORTEOS       : "tiene"
+    USERS       |o--o{ SORTEOS       : "gana (opcional)"
+    SORTEOS     ||--o{ CHANCES       : "recibe"
+    USERS       ||--o{ CHANCES       : "compra"
+    USERS       ||--o{ NOTIFICATIONS : "recibe"
+    SORTEOS     |o--o{ NOTIFICATIONS : "genera (opcional)"
 ```
 
 **Claves foráneas implementadas:**
-- `tickets.id_users` → `users.id_users` (ON DELETE RESTRICT, ON UPDATE CASCADE)
-- `tickets.id_events` → `events.id_events` (ON DELETE RESTRICT, ON UPDATE CASCADE)
+
+| Tabla origen | Columna | Referencia | ON DELETE | ON UPDATE |
+|---|---|---|---|---|
+| `tickets` | `id_users` | `users.id_users` | RESTRICT | CASCADE |
+| `tickets` | `id_events` | `events.id_events` | RESTRICT | CASCADE |
+| `sorteos` | `id_events` | `events.id_events` | CASCADE | CASCADE |
+| `sorteos` | `id_ganador` | `users.id_users` | SET NULL | CASCADE |
+| `chances` | `id_sorteo` | `sorteos.id_sorteo` | CASCADE | CASCADE |
+| `chances` | `id_users` | `users.id_users` | RESTRICT | CASCADE |
+| `notifications` | `id_users` | `users.id_users` | CASCADE | CASCADE |
+| `notifications` | `id_sorteo` | `sorteos.id_sorteo` | CASCADE | CASCADE |
 
 ---
 
