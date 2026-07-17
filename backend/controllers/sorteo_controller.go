@@ -26,6 +26,9 @@ type buyChancesRequest struct {
 }
 
 // GetSorteoByEvent handles GET /api/events/:id/sorteo — público, sin token.
+// Que el evento no tenga sorteo cargado es un estado normal, no un error: se responde
+// 200 con body null en vez de 404, para no ensuciar la consola del front en cada evento
+// sin sorteo (la mayoría). Un 404/500 acá queda reservado para fallos reales.
 func (c *SorteoController) GetSorteoByEvent(ctx *gin.Context) {
 	id, err := strconv.ParseUint(ctx.Param("id"), 10, 32)
 	if err != nil {
@@ -35,7 +38,7 @@ func (c *SorteoController) GetSorteoByEvent(ctx *gin.Context) {
 
 	sorteo, err := c.sorteoService.GetSorteoByEventID(uint(id))
 	if err != nil {
-		ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Error al obtener el sorteo"})
 		return
 	}
 	ctx.JSON(http.StatusOK, sorteo)

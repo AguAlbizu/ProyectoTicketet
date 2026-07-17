@@ -1,11 +1,14 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"time"
 
 	"ticketapp/domain"
+
+	"gorm.io/gorm"
 )
 
 // SorteoDAOPort define los métodos de persistencia de sorteos requeridos por SorteoService.
@@ -103,11 +106,16 @@ func (s *SorteoService) CreateSorteo(eventID uint, nombre string, valorChance in
 	return sorteo, nil
 }
 
-// GetSorteoByEventID retorna el sorteo del evento, si tiene uno cargado.
+// GetSorteoByEventID retorna el sorteo del evento, o nil si no tiene ninguno cargado.
+// No tener sorteo es un estado válido (la mayoría de los eventos no tienen), no un error:
+// solo se propaga como error un fallo real de la base de datos.
 func (s *SorteoService) GetSorteoByEventID(eventID uint) (*domain.Sorteo, error) {
 	sorteo, err := s.sorteoDAO.GetSorteoByEventID(eventID)
 	if err != nil {
-		return nil, fmt.Errorf("este evento no tiene sorteo")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("error al obtener el sorteo: %w", err)
 	}
 	return sorteo, nil
 }
